@@ -1,0 +1,532 @@
+import os
+import streamlit as st
+import pandas as pd
+from catboost import CatBoostClassifier
+from groq import Groq
+import re
+
+# ReportLab Components for Professional Prescription Layout
+from reportlab.lib.pagesizes import letter
+from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle
+from reportlab.lib import colors
+from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
+import io
+
+# --- Page Config ---
+st.set_page_config(
+    page_title="Early Diabetes Chatbot AI",
+    page_icon="🩸",
+    layout="wide"
+)
+
+# --- API Key ---
+GROQ_API_KEY = "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"
+
+# --- 📚 RAG Knowledge Base Setup ---
+@st.cache_resource
+def setup_rag_knowledge_base():
+    clinical_guidelines = [
+        "Guideline: Polyuria (frequent urination) and Polydipsia (excessive thirst) are key indicators of high blood glucose. Immediate tests required: HbA1c (>6.5% indicates diabetes) and Fasting Blood Sugar (FBS >126 mg/dL).",
+        "Guideline: Delayed healing of wounds or cuts indicates microvascular complications often related to prolonged hyperglycemia. Patients must be screened for peripheral neuropathy and HbA1c.",
+        "Guideline: Diabetes management for high risk includes lifestyle changes: reducing carbohydrate intake to less than 45% of daily calories, engaging in 150 minutes of moderate exercise per week, and weight monitoring.",
+        "Guideline: For low risk or negative diabetes risk screen, routine wellness checkup including annual HbA1c and fasting glucose is recommended, especially for adults above 35 years old.",
+        "Guideline: Symptoms like Irritability, Alopecia (hair loss), and skin Itching can be secondary systemic signs of metabolic changes or poor circulation linked with early insulin resistance."
+    ]
+    return clinical_guidelines
+
+guidelines_db = setup_rag_knowledge_base()
+
+def get_rag_agent_response(patient_context, language):
+    context_source = "\n".join(guidelines_db)
+    try:
+        client = Groq(api_key=GROQ_API_KEY)
+        
+        system_content = (
+            f"You are an expert Medical AI Agent acting as a supportive AI Doctor named DECat-AI. Analyze the patient strictly based on the provided Clinical Guidelines. "
+            f"CRITICAL RULE: You MUST write your entire response strictly in {language}. If the language is বাংলা, use simple and clear Bengali words. "
+            f"Format your response as a beautiful, professional, and clear clinical report. Use clear headers like 'Diagnostic Advice', "
+            f"'Dietary Modifications', and 'Lifestyle Protocol' (translate these headers properly if the language is Bengali, e.g., 'ডায়াগনস্টিক পরামর্শ', 'খাদ্যতালিকাগত পরিবর্তন', 'জীবনধারা প্রোটোকল'). "
+            f"STRICT RULE: Never use mathematical symbols like greater than, less than, percentage signs, dollar signs, or brackets. "
+            f"Write them in plain text words if necessary (e.g., in English write 'greater than 6.5 percent', or in Bengali write '৬.৫ শতাংশের বেশি')."
+        )
+        
+        completion = client.chat.completions.create(
+            model="llama-3.3-70b-versatile",
+            messages=[
+                {"role": "system", "content": system_content},
+                {"role": "user", "content": f"Clinical Guidelines Reference:\n{context_source}\n\nPatient Case Profile:\n{patient_context}"}
+            ],
+            temperature=0.2,
+            max_tokens=1000,
+        )
+        return completion.choices[0].message.content, context_source
+    except Exception as e:
+        return f"Error generating Agent insights: {e}", ""
+
+def get_english_prescription_insights(patient_context):
+    context_source = "\n".join(guidelines_db)
+    try:
+        client = Groq(api_key=GROQ_API_KEY)
+        
+        system_content = (
+            "You are an expert Medical AI Agent. Generate a highly concise, professional, point-by-point prescription plan in English. "
+            "Format the output strictly as a clean, structured bulleted list with these exact section headers: "
+            "'DIAGNOSTIC ADVICE:', 'DIETARY MODIFICATIONS:', and 'LIFESTYLE PROTOCOL:'. "
+            "Keep each point short, precise, and practical. Do not use formatting markdown symbols like asterisks or hashtags. "
+            "STRICT RULE: Never use mathematical symbols like greater than, less than, percentage signs, dollar signs, or brackets. Write them as plain words (e.g., 'percent', 'greater than')."
+        )
+        
+        completion = client.chat.completions.create(
+            model="llama-3.3-70b-versatile",
+            messages=[
+                {"role": "system", "content": system_content},
+                {"role": "user", "content": f"Clinical Guidelines Reference:\n{context_source}\n\nPatient Case Profile:\n{patient_context}"}
+            ],
+            temperature=0.1,
+            max_tokens=500,
+        )
+        return completion.choices[0].message.content
+    except Exception:
+        return "DIAGNOSTIC ADVICE:\n- Order HbA1c and Fasting Blood Sugar tests.\nDIETARY MODIFICATIONS:\n- Restrict daily carbohydrates intake.\nLIFESTYLE PROTOCOL:\n- Engage in 150 minutes of moderate exercise weekly."
+
+# --- CatBoost Model Loading ---
+@st.cache_resource
+def load_model():
+    model = CatBoostClassifier()
+    current_dir = os.path.dirname(__file__)
+    model_path = os.path.join(current_dir, "final_catboost_modol.cbm")
+    try:
+        model.load_model(model_path)
+        return model
+    except Exception as e:
+        st.error(f"Error loading model: {e}")
+        return None
+
+model = load_model()
+
+# --- 📄 ALWAYS ENGLISH PDF Prescription Pad Generation ---
+def generate_prescription_pdf(patient_name, patient_data, result_text, confidence, english_agent_report):
+    buffer = io.BytesIO()
+    doc = SimpleDocTemplate(buffer, pagesize=letter, rightMargin=40, leftMargin=40, topMargin=40, bottomMargin=40)
+    story = []
+    
+    styles = getSampleStyleSheet()
+    
+    header_text = "AI DOCTOR SCREENING SYSTEM"
+    sub_header_text = "Automated Clinical Decision Support & Screening"
+    section1_text = "PATIENT CLINICAL CASE HISTORY"
+    col1_title = "Symptom / Metric"
+    col2_title = "Patient Status"
+    section2_text = "STATISTICAL RISK ASSESSMENT (CATBOOST ENGINE)"
+    risk_label = "Risk Evaluation:"
+    conf_label = "Algorithmic Confidence Level:"
+    section3_text = "Rx — CLINICAL GUIDELINE & ACTION PLAN"
+    warning_text = "Warning: This AI Doctor decision is not final. It is a preliminary screening report. Please consult a registered medical practitioner for formal diagnosis and treatment."
+
+    header_style = ParagraphStyle('HeaderStyle', parent=styles['Heading1'], fontSize=22, textColor=colors.HexColor('#dc3545'), alignment=1, spaceAfter=5, fontName='Helvetica-Bold')
+    sub_header_style = ParagraphStyle('SubHeaderStyle', parent=styles['Normal'], fontSize=10, textColor=colors.HexColor('#555555'), alignment=1, spaceAfter=15, fontName='Helvetica')
+    section_style = ParagraphStyle('SectionStyle', parent=styles['Heading2'], fontSize=13, textColor=colors.HexColor('#0056b3'), spaceBefore=12, spaceAfter=6, fontName='Helvetica-Bold')
+    body_style = ParagraphStyle('BodyStyle', parent=styles['Normal'], fontSize=10, leading=15, textColor=colors.HexColor('#222222'), fontName='Helvetica')
+    alert_style = ParagraphStyle('AlertStyle', parent=styles['Normal'], fontSize=9, leading=14, textColor=colors.HexColor('#bd2130'), fontName='Helvetica-Bold', alignment=1)
+    
+    story.append(Paragraph(header_text, header_style))
+    story.append(Paragraph(sub_header_text, sub_header_style))
+    
+    story.append(Table([[""]], colWidths=[530], rowHeights=[2], style=TableStyle([('BACKGROUND', (0,0), (-1,-1), colors.HexColor('#dc3545'))])))
+    story.append(Spacer(1, 15))
+    
+    story.append(Paragraph(section1_text, section_style))
+    
+    data = [[col1_title, col2_title], ["Patient Name", str(patient_name)]]
+    for k, v in patient_data.items():
+        v_final = "Present (Yes)" if str(v) == "Yes" else ("Absent (No)" if str(v) == "No" else str(v))
+        data.append([str(k), v_final])
+        
+    t = Table(data, colWidths=[265, 265])
+    t.setStyle(TableStyle([
+        ('BACKGROUND', (0,0), (1,0), colors.HexColor('#f8f9fa')),
+        ('TEXTCOLOR', (0,0), (1,0), colors.HexColor('#111111')),
+        ('FONTNAME', (0,0), (-1,-1), 'Helvetica'),
+        ('FONTNAME', (0,0), (1,0), 'Helvetica-Bold'),
+        ('BOTTOMPADDING', (0,0), (-1,-1), 5),
+        ('TOPPADDING', (0,0), (-1,-1), 5),
+        ('GRID', (0,0), (-1,-1), 0.5, colors.HexColor('#dddddd')),
+    ]))
+    story.append(t)
+    story.append(Spacer(1, 15))
+    
+    story.append(Paragraph(section2_text, section_style))
+    pdf_verdict = "DIABETES RISK DETECTED" if ("DETECTED" in result_text or "সনাক্ত" in result_text) else "NO IMMEDIATE RISK DETECTED"
+    verdict_color = '#dc3545' if "DETECTED" in pdf_verdict else '#28a745'
+    verdict_html = f"<font color='{verdict_color}'><b>{pdf_verdict}</b></font>"
+    story.append(Paragraph(f"<b>{risk_label}</b> {verdict_html}", body_style))
+    story.append(Paragraph(f"<b>{conf_label}</b> {confidence}", body_style))
+    story.append(Spacer(1, 15))
+    
+    story.append(Paragraph(section3_text, section_style))
+    
+    clean_report = english_agent_report.replace("**", "").replace("###", "").replace("*", "-")
+    clean_report = clean_report.replace(">", " greater than ").replace("<", " less than ")
+    clean_report = clean_report.replace("%", " percent ").replace("$", "")
+    
+    for para in clean_report.split("\n"):
+        if para.strip():
+            story.append(Paragraph(para.strip(), body_style))
+            story.append(Spacer(1, 4))
+            
+    story.append(Spacer(1, 25))
+    story.append(Table([[""]], colWidths=[530], rowHeights=[1], style=TableStyle([('BACKGROUND', (0,0), (-1,-1), colors.HexColor('#cccccc'))])))
+    story.append(Spacer(1, 15))
+    
+    story.append(Paragraph(warning_text, alert_style))
+    
+    doc.build(story)
+    buffer.seek(0)
+    return buffer
+
+# --- 📱 Enhanced Responsive Custom CSS ---
+st.markdown("""
+    <style>
+    .stApp { background-color: #f4f6f9; }
+    
+    /* Responsive Chat Bubbles */
+    .chat-bubble-ai { 
+        background-color: #ffffff; 
+        padding: 12px 16px; 
+        border-radius: 14px; 
+        border-left: 5px solid #dc3545; 
+        box-shadow: 0 2px 4px rgba(0,0,0,0.04); 
+        margin-bottom: 12px; 
+        font-size: calc(14px + 0.15vw); 
+        line-height: 1.5;
+        max-width: 100%;
+    }
+    .chat-bubble-user { 
+        background-color: #dc3545; 
+        color: white; 
+        padding: 10px 16px; 
+        border-radius: 14px; 
+        text-align: left; 
+        margin-bottom: 12px; 
+        display: inline-block; 
+        float: right; 
+        clear: both; 
+        font-size: calc(14px + 0.15vw);
+        max-width: 85%;
+    }
+    
+    /* Responsive Custom Containers */
+    .report-box { 
+        background-color: #eef2f7; 
+        padding: 18px; 
+        border-left: 5px solid #0056b3; 
+        border-radius: 10px; 
+        margin-top: 15px; 
+        font-size: calc(14px + 0.1vw); 
+        line-height: 1.6;
+    }
+    .warning-box {
+        background-color: #fff3cd; 
+        color: #856404; 
+        padding: 14px; 
+        border-left: 5px solid #ffc107; 
+        border-radius: 8px; 
+        margin-top: 15px; 
+        font-size: calc(13px + 0.1vw);
+        font-weight: bold;
+    }
+    .rag-source { 
+        background-color: #e2e3e5; 
+        padding: 12px; 
+        border-radius: 6px; 
+        font-size: 12px; 
+        font-family: monospace; 
+        color: #383d41;
+        overflow-x: auto;
+    }
+    
+    /* Fix radio alignment & tap targets for smaller screens */
+    div[data-testid="stRadio"] > label {
+        font-size: 15px !important;
+    }
+    div[data-testid="stForm"] {
+        border: none !important;
+        padding: 0 !important;
+    }
+    
+    /* Optimize Download Button UI for Mobile */
+    div.stDownloadButton button {
+        width: 100% !important;
+        padding: 10px 15px !important;
+    }
+    </style>
+    """, unsafe_allow_html=True)
+
+# --- Language Selection Sidebar ---
+st.sidebar.title("🌐 Language / ভাষা")
+lang = st.sidebar.radio("Select Chat Language", ["English", "বাংলা"], index=0)
+
+# --- Questions Definition ---
+questions = [
+    {"field": "Age", "en": "What is your Age?", "bn": "আপনার বয়স কত?"},
+    {"field": "Gender", "en": "What is your Gender?", "bn": "আপনার লিঙ্গ কী?", "options": ["Male", "Female"]},
+    {"field": "Polyuria", "en": "Do you experience excessive urination (Polyuria)?", "bn": "আপনার কি অতিরিক্ত প্রস্রাবের সমস্যা (Polyuria) হচ্ছে?", "options": ["Yes", "No"]},
+    {"field": "Polydipsia", "en": "Do you feel excessively thirsty (Polydipsia)?", "bn": "আপনার কি অতিরিক্ত তৃষ্ণা (Polydipsia) পায়?", "options": ["Yes", "No"]},
+    {"field": "Irritability", "en": "Have you been feeling unusually irritable lately?", "bn": "আপনি কি ইদানীং খিটখীটে মেজাজ অনুভব করছেন?", "options": ["Yes", "No"]},
+    {"field": "Itching", "en": "Do you have frequent skin itching?", "bn": "আপনার শরীরে কি ঘন ঘন চুলকানির সমস্যা হচ্ছে?", "options": ["Yes", "No"]},
+    {"field": "delayed healing", "en": "Do your wounds or cuts take a long time to heal?", "bn": "আপনার শরীরে কোনো ক্ষত বা কাটা শুকাতে কি স্বাভাবিকের চেয়ে বেশি সময় লাগে?", "options": ["Yes", "No"]},
+    {"field": "Alopecia", "en": "Are you experiencing significant hair loss (Alopecia)?", "bn": "আপনার কি অতিরিক্ত চুল পড়ে যাওয়ার (Alopecia) সমস্যা হচ্ছে?", "options": ["Yes", "No"]}
+]
+
+# --- Session State Initializations ---
+if "step" not in st.session_state:
+    st.session_state.step = -2
+if "patient_name" not in st.session_state:
+    st.session_state.patient_name = ""
+if "user_responses" not in st.session_state:
+    st.session_state.user_responses = {}
+if "chat_history" not in st.session_state:
+    st.session_state.chat_history = []
+
+# --- Main App Render ---
+st.title("🩸 Early Diabetes Conversational AI Agent" if lang == "English" else "🩸 ডায়াবেটিস চ্যাটবট এআই এজেন্ট")
+st.markdown("---")
+
+with st.container():
+    # Render Chat History
+    for chat in st.session_state.chat_history:
+        if chat["role"] == "ai":
+            st.markdown(f'<div class="chat-bubble-ai">🤖 <b>DECat-AI:</b> {chat["text"]}</div>', unsafe_allow_html=True)
+        else:
+            st.markdown(f'<div style="width:100%; overflow:auto;"><div class="chat-bubble-user">👤 {chat["text"]}</div></div>', unsafe_allow_html=True)
+
+    # --- STEP -2: ASK FOR PATIENT NAME ---
+    if st.session_state.step == -2:
+        welcome_init = (
+            "Hello! Welcome to our Early Diabetes Screening Desk. I am your AI Doctor, DECat-AI. Before we begin, may I know your name please?"
+            if lang == "English" else
+            "হ্যালো! আমাদের আর্লি ডায়াবেটিস স্ক্রিনিং ডেস্কে আপনাকে স্বাগত। আমি আপনার এআই ডাক্তার, DECat-AI। আমাদের পরীক্ষা শুরু করার আগে, আমি কি আপনার নামটা জানতে পারি?"
+        )
+        st.markdown(f'<div class="chat-bubble-ai">🤖 <b>DECat-AI:</b> {welcome_init}</div>', unsafe_allow_html=True)
+        
+        with st.form(key="name_form"):
+            name_input = st.text_input("Enter your name..." if lang == "English" else "আপনার নাম লিখুন...", key="name_field")
+            submit_name = st.form_submit_button("Next ➡️" if lang == "English" else "পরবর্তী ➡️")
+            
+            if submit_name and name_input.strip() != "":
+                st.session_state.patient_name = name_input.strip()
+                st.session_state.chat_history.append({"role": "ai", "text": welcome_init})
+                st.session_state.chat_history.append({"role": "user", "text": name_input.strip()})
+                
+                welcome_back = (
+                    f"Nice to meet you, {st.session_state.patient_name}! I am DECat-AI. How are you doing today? Do you have any health concerns? "
+                    f"By the way, can I start your early diabetes screening test now?"
+                    if lang == "English" else
+                    f"আপনার সাথে পরিচিত হয়ে ভালো লাগলো, {st.session_state.patient_name}! আমি DECat-AI। আজ আপনি কেমন আছেন? আপনার কি কোনো স্বাস্থ্য সমস্যা হচ্ছে? "
+                    f"ভালো কথা, আমি কি আপনার ডায়াবেটিস স্ক্রিনিং টেস্টটি এখন শুরু করতে পারি?"
+                )
+                st.session_state.chat_history.append({"role": "ai", "text": welcome_back})
+                st.session_state.step = -1
+                st.rerun()
+
+    # --- STEP -1: NATURAL CHAT & SEAMLESS AUTOMATIC INTENT TRIGGER ---
+    elif st.session_state.step == -1:
+        with st.form(key="natural_chat_form", clear_on_submit=True):
+            user_msg = st.text_input("Ask me anything or say something..." if lang == "English" else "আমাকে যেকোনো প্রশ্ন করুন বা কিছু বলুন...")
+            submit_chat = st.form_submit_button("Send 💬" if lang == "English" else "পাঠান 💬")
+            
+            if submit_chat and user_msg.strip() != "":
+                st.session_state.chat_history.append({"role": "user", "text": user_msg})
+                
+                text_clean = user_msg.strip().lower()
+                positive_keywords = [
+                    "ha", "haa", "hay", "hoy", "yes", "y", "ok", "okay", "sure", "start", "go", "test", 
+                    "হ্যাঁ", "হ্যা", "হুম", "করুন", "করো", "শুরু", "ঠিক আছে", "চলুন", "হবে"
+                ]
+                
+                if any(kw in text_clean for kw in positive_keywords):
+                    st.session_state.step = 0
+                    st.rerun()
+                else:
+                    with st.spinner("Thinking..."):
+                        try:
+                            client = Groq(api_key=GROQ_API_KEY)
+                            chat_context = [
+                                {
+                                    "role": "system", 
+                                    "content": (
+                                        f"You are DECat-AI, a warm, natural and empathetic AI Doctor talking to {st.session_state.patient_name}. "
+                                        f"Answer their questions or chats conversationally and concisely in {lang}. "
+                                        f"At the end of your response, you MUST always ask them elegantly whether you can start the diabetes test now "
+                                        f"(e.g., 'আমি কি আপনার টেস্ট শুরু করতে পারি?')."
+                                    )
+                                }
+                            ]
+                            for h in st.session_state.chat_history[-6:]:
+                                chat_context.append({"role": "user" if h["role"] == "user" else "assistant", "content": h["text"]})
+                                
+                            reply = client.chat.completions.create(
+                                model="llama-3.3-70b-versatile",
+                                messages=chat_context,
+                                temperature=0.6,
+                                max_tokens=250
+                            )
+                            ai_reply = reply.choices[0].message.content
+                        except Exception:
+                            ai_reply = "I see. Shall we start your early diabetes risk test now?" if lang == "English" else "বুঝতে পারলাম। আমরা কি এখন আপনার ডায়াবেটিস পরীক্ষাটি শুরু করতে পারি?"
+                    
+                    st.session_state.chat_history.append({"role": "ai", "text": ai_reply})
+                    st.rerun()
+
+    # --- 📋 STEP 0 to N: MEDICAL QUESTIONNAIRE (Blank States Enabled) ---
+    elif 0 <= st.session_state.step < len(questions):
+        current_q = questions[st.session_state.step]
+        q_text = current_q["bn"] if lang == "বাংলা" else current_q["en"]
+        
+        st.markdown(f'<div class="chat-bubble-ai">🤖 <b>DECat-AI:</b> {q_text}</div>', unsafe_allow_html=True)
+        
+        with st.form(key=f"q_form_{st.session_state.step}"):
+            if "options" in current_q:
+                opt_mapping = {
+                    "Male": "পুরুষ" if lang == "বাংলা" else "Male",
+                    "Female": "নারী" if lang == "বাংলা" else "Female",
+                    "Yes": "হ্যাঁ" if lang == "বাংলা" else "Yes",
+                    "No": "না" if lang == "বাংলা" else "No"
+                }
+                rev_mapping = {v: k for k, v in opt_mapping.items()}
+                
+                user_choice = st.radio(
+                    "Choose one:", 
+                    [opt_mapping[o] for o in current_q["options"]], 
+                    index=None, 
+                    label_visibility="collapsed"
+                )
+                submit_btn = st.form_submit_button("Next ➡️" if lang == "English" else "পরবর্তী ➡️")
+                
+                if submit_btn:
+                    if user_choice is None:
+                        st.error("Please select an option before moving to the next question!" if lang == "English" else "পরবর্তী প্রশ্নে যাওয়ার আগে দয়া করে একটি অপশন সিলেক্ট করুন!")
+                    else:
+                        user_val = rev_mapping[user_choice]
+                        st.session_state.user_responses[current_q["field"]] = user_val
+                        st.session_state.chat_history.append({"role": "ai", "text": q_text})
+                        st.session_state.chat_history.append({"role": "user", "text": user_choice})
+                        st.session_state.step += 1
+                        st.rerun()
+            else:
+                user_val = st.number_input(
+                    "Enter your age:", 
+                    min_value=1, 
+                    max_value=120, 
+                    value=None, 
+                    placeholder="e.g. 35" if lang == "English" else "যেমন: ৩৫",
+                    label_visibility="collapsed"
+                )
+                submit_btn = st.form_submit_button("Next ➡️" if lang == "English" else "পরবর্তী ➡️")
+                
+                if submit_btn:
+                    if user_val is None:
+                        st.error("Please enter your age before moving to the next question!" if lang == "English" else "পরবর্তী প্রশ্নে যাওয়ার আগে দয়া করে আপনার বয়স লিখুন!")
+                    else:
+                        user_choice = str(int(user_val))
+                        st.session_state.user_responses[current_q["field"]] = int(user_val)
+                        st.session_state.chat_history.append({"role": "ai", "text": q_text})
+                        st.session_state.chat_history.append({"role": "user", "text": user_choice})
+                        st.session_state.step += 1
+                        st.rerun()
+
+    # --- 📊 FINAL EVALUATION & REPORT RENDERING ---
+    else:
+        st.write("---")
+        st.success("All clinical tokens captured. Computing predictive algorithms..." if lang == "English" else "সব তথ্য সফলভাবে সংগৃহীত হয়েছে! প্রোফাইল বিশ্লেষণ করা হচ্ছে...")
+        
+        res = st.session_state.user_responses
+        input_df = pd.DataFrame([res])
+        
+        for col in input_df.columns:
+            if col != 'Age':
+                input_df[col] = input_df[col].astype('category')
+                
+        if model is not None:
+            prediction = model.predict(input_df)[0]
+            probability = model.predict_proba(input_df)[0]
+            
+            is_positive = str(prediction) == "1" or prediction == 1 or str(prediction).lower() == "positive"
+            score = probability[1] if is_positive else probability[0]
+            
+            if lang == "বাংলা":
+                verdict_str = "ডায়াবেটিসের ঝুঁকি সনাক্ত হয়েছে" if is_positive else "কোনো তাত্ক্ষণিক ঝুঁকি পাওয়া যায়নি"
+            else:
+                verdict_str = "DIABETES RISK DETECTED" if is_positive else "NO IMMEDIATE RISK DETECTED"
+                
+            confidence_str = f"{score * 100:.2f}%"
+
+            # --- Analytics Dashboard ---
+            st.subheader("📊 Analytics Summary" if lang == "English" else "📊  অ্যানালিটিক্স সামারি")
+            col_res1, col_res2 = st.columns([1, 2])
+            
+            with col_res1:
+                if is_positive:
+                    st.error("🚨 DIABETES RISK DETECTED" if lang == "English" else "🚨 ডায়াবেটিসের ঝুঁকি সনাক্ত হয়েছে")
+                else:
+                    st.success("✅ NO IMMEDIATE RISK DETECTED" if lang == "English" else "✅ কোনো তাত্ক্ষণিক ঝুঁকি পাওয়া যায়নি")
+                st.metric(label="Model Confidence" if lang == "English" else "মডেলের নিশ্চিততা", value=confidence_str)
+                
+            with col_res2:
+                st.write("**Risk Probability Meter**" if lang == "English" else "**ঝুঁকির পরিমাপক মিটার**")
+                st.progress(float(score))
+                
+            # --- Prepare Context for AI Generator ---
+            active_symptoms = [k for k, v in res.items() if v == 'Yes']
+            patient_case_context = f"""
+            Patient Name: {st.session_state.patient_name}
+            Patient Profile: {res['Age']} years old, Gender: {res['Gender']}.
+            Reported Symptoms: {', '.join(active_symptoms) if active_symptoms else 'No primary symptoms reported'}.
+            Diagnostic Model Verdict: {'High Risk / Diabetic Profile Match' if is_positive else 'Low Risk / Healthy Profile Match'} with {score * 100:.2f}% confidence.
+            """
+            
+            with st.spinner("🤖 Generative AI Doctor is consulting clinical guidelines..."):
+                agent_report, matched_guidelines = get_rag_agent_response(patient_case_context, lang)
+                
+            with st.spinner("Preparing English Prescription Document..."):
+                english_prescription_report = get_english_prescription_insights(patient_case_context)
+                
+            st.subheader("🤖 AI Doctor Assessment Report" if lang == "English" else "🤖 এআই ডাক্তার মূল্যায়ন রিপোর্ট")
+            st.markdown(f'<div class="report-box">{agent_report}</div>', unsafe_allow_html=True)
+            
+            # --- LANGUAGE SWITCH WARNING BOX ---
+            warning_text_display = (
+                "⚠️ Warning: This AI Doctor decision is not final. It is a preliminary screening report. Please consult a registered medical practitioner for formal diagnosis and treatment."
+                if lang == "English" else
+                "⚠️ সতর্কবার্তা: এই এআই ডাক্তারের সিদ্ধান্ত চূড়ান্ত নয়। এটি একটি প্রাথমিক স্ক্রিনিং রিপোর্ট মাত্র। চূড়ান্ত সিদ্ধান্ত ও চিকিৎসার জন্য অবশ্যই একজন রেজিস্টার্ড ডাক্তারের পরামর্শ নিন।"
+            )
+            st.markdown(f'<div class="warning-box">{warning_text_display}</div>', unsafe_allow_html=True)
+            
+            # --- PDF Action Trigger ---
+            st.write(" ")
+            prescription_pdf = generate_prescription_pdf(
+                st.session_state.patient_name, res, verdict_str, confidence_str, english_prescription_report
+            )
+            
+            st.download_button(
+                label="📥 Download Prescription PDF (English Only)" if lang == "English" else "📥 প্রেসক্রিপশন পিডিএফ ডাউনলোড করুন (ইংরেজি সংস্করণ)",
+                data=prescription_pdf,
+                file_name=f"AI_Prescription_{st.session_state.patient_name}.pdf",
+                mime="application/pdf"
+            )
+
+            with st.expander("📖 View Referenced Clinical Guidelines (RAG Source)"):
+                st.markdown(f'<div class="rag-source">{matched_guidelines}</div>', unsafe_allow_html=True)
+                
+        # Restart Evaluation Session
+        st.write(" ")
+        if st.button("🔄 Restart Chat Assessment" if lang == "English" else "🔄 নতুন করে পরীক্ষা শুরু করুন"):
+            st.session_state.step = -2
+            st.session_state.patient_name = ""
+            st.session_state.user_responses = {}
+            st.session_state.chat_history = []
+            st.rerun()
+
+# --- Footer ---
+st.write("---")
+st.caption("© 2026 Early Diabetes AI Prediction Systems | Made by Sumon Ray")
