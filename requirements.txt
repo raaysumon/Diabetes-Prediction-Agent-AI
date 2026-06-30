@@ -2,3 +2,4 @@ streamlit
 catboost
 pandas
 groq
+reportlab
