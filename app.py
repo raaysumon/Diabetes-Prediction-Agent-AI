@@ -309,7 +309,7 @@ for message_bubble in st.session_state.chat_history:
     else:
         st.markdown(f'<div style="overflow:auto;"><div class="chat-bubble-user">👤 {message_bubble["text"]}</div></div>', unsafe_allow_html=True)
 
-# IDENTITY SUB-NODE (স্বাভাবিক কুশল বিনিময় দিয়ে শুরু)
+# IDENTITY SUB-NODE (নাম জানার পর্ব)
 if st.session_state.step == -2:
     init_greeting = (
         f"Hello! I am here as your digital health consultant. "
@@ -328,7 +328,7 @@ if st.session_state.step == -2:
                 record_chat("user", raw_name.strip())
                 reroute_pipeline_to(-1)
 
-# COMPLIANCE SUB-NODE (ডাক্তারী ভাষায় ডায়াবেটিস টেস্টের জন্য জিজ্ঞাসা)
+# COMPLIANCE SUB-NODE (ইউজারের "No" হ্যান্ডেল করার লজিকসহ বাগ ফিক্সড)
 elif st.session_state.step == -1:
     consent_prompt = (
         f"Nice to meet you, {st.session_state.patient_name}. I can help evaluate if your recent symptoms "
@@ -336,16 +336,37 @@ elif st.session_state.step == -1:
     ) if lang_selection == "English" else (
         f"আপনার সাথে পরিচিত হয়ে খুব ভালো লাগলো, {st.session_state.patient_name}। আপনার শারীরিক লক্ষণগুলো "
         f"ডায়াবেটিসের সাথে সম্পর্কিত কি না, তা বুঝতে আমি সাহায্য করতে পারি। আপনি কি একটি ছোট পরীক্ষা করে দেখতে চান? "
-        f"তাহলে চলুন, শুরু করা যাক!"
+        f"তাহله চলুন, শুরু করা যাক!"
     )
     st.markdown(f'<div class="chat-bubble-ai">🤖 <b>DECat-AI:</b> {consent_prompt}</div>', unsafe_allow_html=True)
     with st.form(key="consent_node"):
         consent_reply = st.text_input("Your Response / আপনার উত্তর দিন", placeholder="e.g., Yes / হ্যাঁ / চলুন")
-        if st.form_submit_button("Let's Start 🚀"):
-            record_chat("ai", consent_prompt)
-            user_input = consent_reply.strip() if consent_reply.strip() else ("Yes" if lang_selection == "English" else "চলুন শুরু করি")
-            record_chat("user", user_input)
-            reroute_pipeline_to(0)
+        if st.form_submit_button("Submit 🚀"):
+            user_input = consent_reply.strip().lower()
+            
+            # ইউজার পরীক্ষা করতে না চাইলে তাকে এক্সিট সাব-নোডে (৯৯) রিডাইরেক্ট করা হবে
+            if user_input in ["no", "না", "নাহ", "not now", "না থাক"]:
+                record_chat("ai", consent_prompt)
+                record_chat("user", consent_reply if consent_reply.strip() else "No")
+                reroute_pipeline_to(99)
+            else:
+                record_chat("ai", consent_prompt)
+                record_chat("user", consent_reply if consent_reply.strip() else "Yes")
+                reroute_pipeline_to(0)
+
+# EXIT SUB-NODE (ইউজার নো বললে সেশন ক্লোজ করার প্যানেল)
+elif st.session_state.step == 99:
+    exit_msg = (
+        f"No problem at all, {st.session_state.patient_name}. Your preference is respected. "
+        f"If you ever wish to evaluate your symptoms in the future, I am always here. Stay healthy and take care!"
+    ) if lang_selection == "English" else (
+        f"কোনো समस्या নেই, {st.session_state.patient_name}। আপনার সিদ্ধান্তকে আমরা সম্মান জানাই। "
+        f"ভবিষ্যতে কখনো যদি আপনার লক্ষণগুলো পরীক্ষা করতে ইচ্ছা হয়, আমি এখানেই থাকবো। ভালো থাকুন, সুস্থ থাকুন!"
+    )
+    st.markdown(f'<div class="chat-bubble-ai">🤖 <b>DECat-AI:</b> {exit_msg}</div>', unsafe_allow_html=True)
+    if st.button("Restart Session 🔄"):
+        st.session_state.clear()
+        st.rerun()
 
 # SEQUENTIAL SURVEY ENGINE LOOP
 elif 0 <= st.session_state.step < len(quiz_schema):
