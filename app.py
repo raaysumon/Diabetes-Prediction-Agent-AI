@@ -293,9 +293,6 @@ if "chat_history" not in st.session_state:
 st.title("🩸 Early Diabetes Conversational AI Agent" if lang == "English" else "🩸 ডায়াবেটিস চ্যাটবট এআই এজেন্ট")
 st.markdown("---")
 
-# Safe Execution Guard to prevent flash error during rapid state transitions
-rerun_flag = False
-
 with st.container():
     # Render Chat History safely
     for chat in st.session_state.chat_history:
@@ -304,7 +301,7 @@ with st.container():
         elif chat.get("role") == "user":
             st.markdown(f'<div style="width:100%; overflow:auto;"><div class="chat-bubble-user">👤 {chat.get("text", "")}</div></div>', unsafe_allow_html=True)
 
-    # --- STEP -2: ASK FOR PATIENT NAME ---
+    # --- STEP -2: ASK FOR PATIENT NAME (Using Dynamic Form Keys to Prevent State Disconnect) ---
     if st.session_state.step == -2:
         welcome_init = (
             "Hello! Welcome to our Early Diabetes Screening Desk. I am your AI Doctor, DECat-AI. Before we begin, may I know your name please?"
@@ -313,8 +310,8 @@ with st.container():
         )
         st.markdown(f'<div class="chat-bubble-ai">🤖 <b>DECat-AI:</b> {welcome_init}</div>', unsafe_allow_html=True)
         
-        with st.form(key="name_form"):
-            name_input = st.text_input("Enter your name..." if lang == "English" else "আপনার নাম লিখুন...", key="name_field")
+        with st.form(key=f"name_form_step_{st.session_state.step}"):
+            name_input = st.text_input("Enter your name..." if lang == "English" else "আপনার নাম লিখুন...", key="name_field_input")
             submit_name = st.form_submit_button("Next ➡️" if lang == "English" else "পরবর্তী ➡️")
             
             if submit_name and name_input.strip() != "":
@@ -331,13 +328,13 @@ with st.container():
                 )
                 st.session_state.chat_history.append({"role": "ai", "text": welcome_back})
                 st.session_state.step = -1
-                rerun_flag = True
+                st.rerun()
 
     # --- STEP -1: NATURAL CHAT & SEAMLESS AUTOMATIC INTENT TRIGGER ---
     elif st.session_state.step == -1:
-        with st.form(key="natural_chat_form", clear_on_submit=True):
-            user_msg = st.text_input("Ask me anything or say something..." if lang == "English" else "আমাকে যেকোনো প্রশ্ন করুন বা কিছু বলুন...")
-            submit_chat = st.form_submit_button("Send 💬" if lang == "English" else "পাঠান 💬")
+        with st.form(key=f"natural_chat_form_step_{st.session_state.step}", clear_on_submit=True):
+            user_msg = st.text_input("Ask me anything or say something..." if lang == "English" else "আমাকে যেকোনো প্রশ্ন করুন বা কিছু বলুন...", key="chat_field_input")
+            submit_chat = st.form_submit_button("Send 💬" if lang == "English" else "পাঠan 💬")
             
             if submit_chat and user_msg.strip() != "":
                 st.session_state.chat_history.append({"role": "user", "text": user_msg})
@@ -350,7 +347,7 @@ with st.container():
                 
                 if any(kw in text_clean for kw in positive_keywords):
                     st.session_state.step = 0
-                    rerun_flag = True
+                    st.rerun()
                 else:
                     with st.spinner("Thinking..."):
                         try:
@@ -380,7 +377,7 @@ with st.container():
                             ai_reply = "I see. Shall we start your early diabetes risk test now?" if lang == "English" else "বুঝতে পারলাম। আমরা কি এখন আপনার ডায়াবেটিস পরীক্ষাটি শুরু করতে পারি?"
                     
                     st.session_state.chat_history.append({"role": "ai", "text": ai_reply})
-                    rerun_flag = True
+                    st.rerun()
 
     # --- 📋 STEP 0 to N: MEDICAL QUESTIONNAIRE ---
     elif 0 <= st.session_state.step < len(questions):
@@ -389,7 +386,7 @@ with st.container():
         
         st.markdown(f'<div class="chat-bubble-ai">🤖 <b>DECat-AI:</b> {q_text}</div>', unsafe_allow_html=True)
         
-        with st.form(key=f"q_form_{st.session_state.step}"):
+        with st.form(key=f"q_form_step_{st.session_state.step}"):
             if "options" in current_q:
                 opt_mapping = {
                     "Male": "পুরুষ" if lang == "বাংলা" else "Male",
@@ -403,7 +400,8 @@ with st.container():
                     "Choose one:", 
                     [opt_mapping[o] for o in current_q["options"]], 
                     index=None, 
-                    label_visibility="collapsed"
+                    label_visibility="collapsed",
+                    key=f"radio_input_{st.session_state.step}"
                 )
                 submit_btn = st.form_submit_button("Next ➡️" if lang == "English" else "পরবর্তী ➡️")
                 
@@ -416,7 +414,7 @@ with st.container():
                         st.session_state.chat_history.append({"role": "ai", "text": q_text})
                         st.session_state.chat_history.append({"role": "user", "text": user_choice})
                         st.session_state.step += 1
-                        rerun_flag = True
+                        st.rerun()
             else:
                 user_val = st.number_input(
                     "Enter your age:", 
@@ -424,7 +422,8 @@ with st.container():
                     max_value=120, 
                     value=None, 
                     placeholder="e.g. 35" if lang == "English" else "যেমন: ৩৫",
-                    label_visibility="collapsed"
+                    label_visibility="collapsed",
+                    key=f"age_input_{st.session_state.step}"
                 )
                 submit_btn = st.form_submit_button("Next ➡️" if lang == "English" else "পরবর্তী ➡️")
                 
@@ -437,7 +436,7 @@ with st.container():
                         st.session_state.chat_history.append({"role": "ai", "text": q_text})
                         st.session_state.chat_history.append({"role": "user", "text": user_choice})
                         st.session_state.step += 1
-                        rerun_flag = True
+                        st.rerun()
 
     # --- 📊 FINAL EVALUATION & REPORT RENDERING ---
     else:
@@ -531,10 +530,6 @@ with st.container():
             st.session_state.user_responses = {}
             st.session_state.chat_history = []
             st.rerun()
-
-# --- Post-Container Safe Rerun Executor ---
-if rerun_flag:
-    st.rerun()
 
 # --- Footer ---
 st.write("---")
