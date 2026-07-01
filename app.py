@@ -55,32 +55,38 @@ guidelines_texts = [item["text"] for item in guidelines_data]
 guidelines_sources = [item["source"] for item in guidelines_data]
 
 def get_rag_agent_response(patient_context, language):
-    """Returns (agent_report, sources_list)"""
+    """Returns (agent_report, sources_list). language is either 'English' or 'বাংলা'."""
     context_source = "\n".join(guidelines_texts)
     try:
         client = Groq(api_key=GROQ_API_KEY)
+        # --- STRONG LANGUAGE INSTRUCTION ---
+        lang_instruction = (
+            f"CRITICAL: Your entire response MUST be written strictly in {language}. "
+            f"Do NOT use any other language. If {language} is 'English', respond only in English. "
+            f"If {language} is 'বাংলা', respond only in Bengali."
+        )
         system_content = (
-            f"You are an expert Medical AI Agent acting as a supportive AI Doctor named DECat-AI. Analyze the patient strictly based on the provided Clinical Guidelines. "
-            f"CRITICAL RULE: You MUST write your entire response strictly in {language}. If the language is বাংলা, use simple and clear Bengali words. "
+            f"You are an expert Medical AI Agent acting as a supportive AI Doctor named DECat-AI. "
+            f"{lang_instruction} "
+            f"Analyze the patient strictly based on the provided Clinical Guidelines. "
             f"Format your response as a beautiful, professional, and clear clinical report. Use clear headers like 'Diagnostic Advice', "
             f"'Dietary Modifications', and 'Lifestyle Protocol' (translate these headers properly if the language is Bengali, e.g., 'ডায়াগনস্টিক পরামর্শ', 'খাদ্যতালিকাগত পরিবর্তন', 'জীবনধারা প্রোটোকল'). "
             f"STRICT RULE: Never use mathematical symbols like greater than, less than, percentage signs, dollar signs, or brackets. "
             f"Write them in plain text words if necessary (e.g., in English write 'greater than 6.5 percent', or in Bengali write '৬.৫ শতাংশের বেশি')."
         )
         completion = client.chat.completions.create(
-            model="llama-3.1-8b-instant",   # smaller model, lower token cost
+            model="llama-3.1-8b-instant",
             messages=[
                 {"role": "system", "content": system_content},
                 {"role": "user", "content": f"Clinical Guidelines Reference:\n{context_source}\n\nPatient Case Profile:\n{patient_context}"}
             ],
             temperature=0.2,
-            max_tokens=600,                 # reduced
+            max_tokens=600,
         )
         return completion.choices[0].message.content, guidelines_sources
     except Exception as e:
         error_str = str(e)
         if "429" in error_str or "rate_limit" in error_str.lower():
-            # try to extract wait time from error message
             import re
             match = re.search(r"try again in (\d+)m(\d+\.?\d*)s", error_str)
             if match:
@@ -94,24 +100,25 @@ def get_rag_agent_response(patient_context, language):
             return f"Error generating Agent insights: {e}", guidelines_sources
 
 def get_english_prescription_insights(patient_context):
+    """Always returns English concise recommendations for PDF."""
     context_source = "\n".join(guidelines_texts)
     try:
         client = Groq(api_key=GROQ_API_KEY)
         system_content = (
-            "You are an expert Medical AI Agent. Generate a highly concise, professional, point-by-point prescription plan in English. "
+            "You are an expert Medical AI Agent. Generate a highly concise, professional, point-by-point recommendation plan in English. "
             "Format the output strictly as a clean, structured bulleted list with these exact section headers: "
             "'DIAGNOSTIC ADVICE:', 'DIETARY MODIFICATIONS:', and 'LIFESTYLE PROTOCOL:'. "
             "Keep each point short, precise, and practical. Do not use formatting markdown symbols like asterisks or hashtags. "
             "STRICT RULE: Never use mathematical symbols like greater than, less than, percentage signs, dollar signs, or brackets. Write them as plain words (e.g., 'percent', 'greater than')."
         )
         completion = client.chat.completions.create(
-            model="llama-3.1-8b-instant",   # smaller model
+            model="llama-3.1-8b-instant",
             messages=[
                 {"role": "system", "content": system_content},
                 {"role": "user", "content": f"Clinical Guidelines Reference:\n{context_source}\n\nPatient Case Profile:\n{patient_context}"}
             ],
             temperature=0.1,
-            max_tokens=300,                 # reduced
+            max_tokens=300,
         )
         return completion.choices[0].message.content
     except Exception as e:
@@ -629,7 +636,7 @@ elif st.session_state.step == -1:
                             chat_context.append({"role": "user" if h["role"] == "user" else "assistant", "content": h["text"]})
                             
                         reply = client.chat.completions.create(
-                            model="llama-3.1-8b-instant",   # smaller model also here
+                            model="llama-3.1-8b-instant",
                             messages=chat_context,
                             temperature=0.6,
                             max_tokens=250
@@ -723,14 +730,14 @@ else:
             
         st.markdown("## 🤖 AI Doctor Assessment Report")
         
-        # --- Display agent report - if it's a rate-limit warning, show in warning box; else show normal report box
+        # Display agent report – if it's a rate-limit warning, show in warning box; else show normal report box
         if agent_report.startswith("⚠️") or "rate limit" in agent_report.lower():
             st.warning(agent_report)
         else:
             st.markdown(f'<div class="report-box">{agent_report}</div>', unsafe_allow_html=True)
         
         # --- Display References ---
-        with st.expander("📚 References (Guidelines Consulted)", expanded=True):
+        with st.expander("📚 References (Guidelines Consulted with Rag)", expanded=True):
             ref_html = '<div class="ref-box"><ul>'
             for src in sources:
                 ref_html += f'<li>{src}</li>'
