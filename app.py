@@ -200,14 +200,13 @@ with st.sidebar:
     st.markdown("### ⚙️ Settings / সেটিংস")
     lang_selection = st.radio("System Interface Language:", ["English", "বাংলা"], index=0)
 
-# --- 8. 100% DEVICE-COMPATIBLE CSS INJECTION ---
-# এখানে কাস্টম CSS ভেরিয়েবল ব্যবহার করা হয়েছে যা ডিভাইসের ডার্ক/লাইট মোডের সাথে ফন্ট ও বাবল কালার অটো-অ্যাডজাস্ট করবে।
+# --- 8. 100% DEVICE-COMPATIBLE FIXED GRAY THEME CSS INJECTION ---
 st.markdown("""
 <style>
-    @import url('https://fonts.googleapis.com/css2?family=Inter:wght=400;500;600;700&display=swap');
-    
+    /* ইউনিভার্সাল ফন্ট স্ট্যাক এবং স্থায়ী ধূসর ব্যাকগ্রাউন্ড */
     html, body, .stApp { 
-        font-family: 'Inter', sans-serif; 
+        font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+        background-color: #f0f2f5 !important; 
     }
     
     .main-wrapper { 
@@ -224,20 +223,20 @@ st.markdown("""
         letter-spacing: -0.5px; 
     }
     
-    /* 100% ডিভাইস সেফ এআই চ্যাট বাবল (রিসেট সেফ গ্রে টোন) */
+    /* এআই চ্যাট বাবল - স্থায়ী ধোঁয়াটে ধূসর টোন */
     .chat-bubble-ai { 
-        background-color: var(--st-color-background, #f8f9fa);
-        color: var(--st-color-text, #212529);
+        background-color: #e9ecef; 
+        color: #212529; 
         padding: 14px 16px; 
         border-radius: 12px; 
         border-left: 5px solid #bd2130; 
         margin-bottom: 12px; 
-        box-shadow: 0 2px 8px rgba(0,0,0,0.05); 
+        box-shadow: 0 2px 5px rgba(0,0,0,0.05); 
         font-size: 15px; 
         word-wrap: break-word;
     }
     
-    /* 100% ডিভাইস সেফ ইউজার চ্যাট বাবল (ইউনিভার্সাল ডার্ক রেড) */
+    /* ইউজার চ্যাট বাবল - ইউনিভার্সাল ডার্ক রেড */
     .chat-bubble-user { 
         background-color: #bd2130; 
         color: #ffffff !important; 
@@ -252,9 +251,10 @@ st.markdown("""
         word-wrap: break-word;
     }
     
-    /* ফর্ম ও রেডিওর মোবাইল রেস্পনসিভ রেডিয়ারেন্স */
+    /* ফর্ম এলিমেন্ট ব্যাকগ্রাউন্ড */
     div[data-testid="stForm"] {
-        border: 1px solid rgba(128, 128, 128, 0.2) !important;
+        background-color: #ffffff !important;
+        border: 1px solid #ced4da !important;
         border-radius: 12px !important;
         padding: 15px !important;
     }
