@@ -120,7 +120,7 @@ def load_model():
 
 model = load_model()
 
-# --- 📄 PDF Prescription with References ---
+# --- 📄 PDF Recommendation with References ---
 def generate_prescription_pdf(patient_name, patient_data, result_text, confidence, english_agent_report, sources_list):
     buffer = io.BytesIO()
     doc = SimpleDocTemplate(buffer, pagesize=letter, rightMargin=40, leftMargin=40, topMargin=40, bottomMargin=40)
@@ -135,7 +135,7 @@ def generate_prescription_pdf(patient_name, patient_data, result_text, confidenc
     section2_text = "STATISTICAL RISK ASSESSMENT (CATBOOST ENGINE)"
     risk_label = "Risk Evaluation:"
     conf_label = "Algorithmic Confidence Level:"
-    section3_text = "Rx — CLINICAL GUIDELINE & ACTION PLAN"
+    section3_text = "RECOMMENDATIONS — CLINICAL GUIDELINE & ACTION PLAN"   # Changed from "Rx" to "Recommendations"
     section4_text = "REFERENCES (Guidelines Consulted)"
     warning_text = "Warning: This AI Doctor decision is not final. It is a preliminary screening report. Please consult a registered medical practitioner for formal diagnosis and treatment."
 
@@ -705,7 +705,7 @@ else:
         
         with st.spinner("🩺 Consulting clinical guidelines..."):
             agent_report, sources = get_rag_agent_response(patient_case_context, lang)
-        with st.spinner("📄 Preparing your prescription document..."):
+        with st.spinner("📄 Preparing your recommendation document..."):   # changed from "prescription" to "recommendation"
             english_prescription_report = get_english_prescription_insights(patient_case_context)
             
         st.markdown("## 🤖 AI Doctor Assessment Report")
@@ -732,9 +732,9 @@ else:
             sources
         )
         st.download_button(
-            label="📥 Download Prescription PDF",
+            label="📥 Download Recommendation PDF",   # changed label
             data=prescription_pdf,
-            file_name=f"AI_Prescription_{st.session_state.patient_name}.pdf",
+            file_name=f"AI_Recommendation_{st.session_state.patient_name}.pdf",   # changed file name
             mime="application/pdf"
         )
 
