@@ -13,7 +13,6 @@ from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
 import io
 
 st.set_page_config(
-    page_title="Early Diabetes Chatbot AI",
     page_icon="🩸",
     layout="wide",
     initial_sidebar_state="collapsed"
