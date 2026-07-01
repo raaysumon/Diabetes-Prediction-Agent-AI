@@ -16,27 +16,47 @@ st.set_page_config(
     page_title="Early Diabetes Chatbot AI",
     page_icon="🩸",
     layout="wide",
-    initial_sidebar_state="collapsed"  # better on mobile
+    initial_sidebar_state="collapsed"
 )
 
 # --- API Key (use st.secrets in production) ---
 GROQ_API_KEY = st.secrets.get("GROQ_API_KEY", "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")
 
-# --- 📚 RAG Knowledge Base Setup ---
+# --- 📚 RAG Knowledge Base Setup with References ---
 @st.cache_resource
 def setup_rag_knowledge_base():
+    """Returns a list of guideline dicts with text and source."""
     return [
-        "Guideline: Polyuria (frequent urination) and Polydipsia (excessive thirst) are key indicators of high blood glucose. Immediate tests required: HbA1c (>6.5% indicates diabetes) and Fasting Blood Sugar (FBS >126 mg/dL).",
-        "Guideline: Delayed healing of wounds or cuts indicates microvascular complications often related to prolonged hyperglycemia. Patients must be screened for peripheral neuropathy and HbA1c.",
-        "Guideline: Diabetes management for high risk includes lifestyle changes: reducing carbohydrate intake to less than 45% of daily calories, engaging in 150 minutes of moderate exercise per week, and weight monitoring.",
-        "Guideline: For low risk or negative diabetes risk screen, routine wellness checkup including annual HbA1c and fasting glucose is recommended, especially for adults above 35 years old.",
-        "Guideline: Symptoms like Irritability, Alopecia (hair loss), and skin Itching can be secondary systemic signs of metabolic changes or poor circulation linked with early insulin resistance."
+        {
+            "text": "Polyuria (frequent urination) and Polydipsia (excessive thirst) are key indicators of high blood glucose. Immediate tests required: HbA1c (>6.5% indicates diabetes) and Fasting Blood Sugar (FBS >126 mg/dL).",
+            "source": "WHO Diabetes Guidelines 2023 – https://www.who.int/diabetes/guidelines"
+        },
+        {
+            "text": "Delayed healing of wounds or cuts indicates microvascular complications often related to prolonged hyperglycemia. Patients must be screened for peripheral neuropathy and HbA1c.",
+            "source": "ADA Standards of Medical Care in Diabetes – https://care.diabetesjournals.org/"
+        },
+        {
+            "text": "Diabetes management for high risk includes lifestyle changes: reducing carbohydrate intake to less than 45% of daily calories, engaging in 150 minutes of moderate exercise per week, and weight monitoring.",
+            "source": "NICE Guideline NG28 – https://www.nice.org.uk/guidance/ng28"
+        },
+        {
+            "text": "For low risk or negative diabetes risk screen, routine wellness checkup including annual HbA1c and fasting glucose is recommended, especially for adults above 35 years old.",
+            "source": "USPSTF Recommendation – https://www.uspreventiveservicestaskforce.org/"
+        },
+        {
+            "text": "Symptoms like Irritability, Alopecia (hair loss), and skin Itching can be secondary systemic signs of metabolic changes or poor circulation linked with early insulin resistance.",
+            "source": "Endocrine Society Clinical Practice Guidelines – https://www.endocrine.org/guidelines"
+        }
     ]
 
-guidelines_db = setup_rag_knowledge_base()
+# Load guidelines with sources
+guidelines_data = setup_rag_knowledge_base()
+guidelines_texts = [item["text"] for item in guidelines_data]
+guidelines_sources = [item["source"] for item in guidelines_data]
 
 def get_rag_agent_response(patient_context, language):
-    context_source = "\n".join(guidelines_db)
+    """Returns (agent_report, sources_list)"""
+    context_source = "\n".join(guidelines_texts)
     try:
         client = Groq(api_key=GROQ_API_KEY)
         system_content = (
@@ -56,12 +76,12 @@ def get_rag_agent_response(patient_context, language):
             temperature=0.2,
             max_tokens=1000,
         )
-        return completion.choices[0].message.content, context_source
+        return completion.choices[0].message.content, guidelines_sources
     except Exception as e:
-        return f"Error generating Agent insights: {e}", ""
+        return f"Error generating Agent insights: {e}", guidelines_sources
 
 def get_english_prescription_insights(patient_context):
-    context_source = "\n".join(guidelines_db)
+    context_source = "\n".join(guidelines_texts)
     try:
         client = Groq(api_key=GROQ_API_KEY)
         system_content = (
@@ -100,8 +120,8 @@ def load_model():
 
 model = load_model()
 
-# --- 📄 ALWAYS ENGLISH PDF Prescription Pad Generation ---
-def generate_prescription_pdf(patient_name, patient_data, result_text, confidence, english_agent_report):
+# --- 📄 PDF Prescription with References ---
+def generate_prescription_pdf(patient_name, patient_data, result_text, confidence, english_agent_report, sources_list):
     buffer = io.BytesIO()
     doc = SimpleDocTemplate(buffer, pagesize=letter, rightMargin=40, leftMargin=40, topMargin=40, bottomMargin=40)
     story = []
@@ -116,12 +136,14 @@ def generate_prescription_pdf(patient_name, patient_data, result_text, confidenc
     risk_label = "Risk Evaluation:"
     conf_label = "Algorithmic Confidence Level:"
     section3_text = "Rx — CLINICAL GUIDELINE & ACTION PLAN"
+    section4_text = "REFERENCES (Guidelines Consulted)"
     warning_text = "Warning: This AI Doctor decision is not final. It is a preliminary screening report. Please consult a registered medical practitioner for formal diagnosis and treatment."
 
     header_style = ParagraphStyle('HeaderStyle', parent=styles['Heading1'], fontSize=22, textColor=colors.HexColor('#dc3545'), alignment=1, spaceAfter=5, fontName='Helvetica-Bold')
     sub_header_style = ParagraphStyle('SubHeaderStyle', parent=styles['Normal'], fontSize=10, textColor=colors.HexColor('#555555'), alignment=1, spaceAfter=15, fontName='Helvetica')
     section_style = ParagraphStyle('SectionStyle', parent=styles['Heading2'], fontSize=13, textColor=colors.HexColor('#0056b3'), spaceBefore=12, spaceAfter=6, fontName='Helvetica-Bold')
     body_style = ParagraphStyle('BodyStyle', parent=styles['Normal'], fontSize=10, leading=15, textColor=colors.HexColor('#222222'), fontName='Helvetica')
+    ref_style = ParagraphStyle('RefStyle', parent=styles['Normal'], fontSize=9, leading=12, textColor=colors.HexColor('#555555'), fontName='Helvetica')
     alert_style = ParagraphStyle('AlertStyle', parent=styles['Normal'], fontSize=9, leading=14, textColor=colors.HexColor('#bd2130'), fontName='Helvetica-Bold', alignment=1)
     
     story.append(Paragraph(header_text, header_style))
@@ -164,6 +186,13 @@ def generate_prescription_pdf(patient_name, patient_data, result_text, confidenc
         if para.strip():
             story.append(Paragraph(para.strip(), body_style))
             story.append(Spacer(1, 4))
+    
+    # --- References Section ---
+    story.append(Spacer(1, 20))
+    story.append(Paragraph(section4_text, section_style))
+    for idx, src in enumerate(sources_list, 1):
+        story.append(Paragraph(f"{idx}. {src}", ref_style))
+        story.append(Spacer(1, 4))
             
     story.append(Spacer(1, 25))
     story.append(Table([[""]], colWidths=[530], rowHeights=[1], style=TableStyle([('BACKGROUND', (0,0), (-1,-1), colors.HexColor('#cccccc'))])))
@@ -173,10 +202,9 @@ def generate_prescription_pdf(patient_name, patient_data, result_text, confidenc
     buffer.seek(0)
     return buffer
 
-# --- 🎨 Enhanced CSS with Animations ---
+# --- 🎨 Enhanced CSS with Animations (unchanged) ---
 st.markdown("""
 <style>
-    /* Import Google Font for a modern look */
     @import url('https://fonts.googleapis.com/css2?family=Inter:ital,wght@0,300;0,400;0,600;0,700;1,400&display=swap');
 
     html, body, .stApp {
@@ -185,7 +213,6 @@ st.markdown("""
         min-height: 100vh;
     }
 
-    /* Animations */
     @keyframes fadeInUp {
         0% { opacity: 0; transform: translateY(20px); }
         100% { opacity: 1; transform: translateY(0); }
@@ -204,27 +231,17 @@ st.markdown("""
         100% { opacity: 1; transform: translateX(0); }
     }
 
-    .fade-in {
-        animation: fadeInUp 0.5s ease-out forwards;
-    }
-    .slide-left {
-        animation: slideInLeft 0.4s ease-out forwards;
-    }
-    .slide-right {
-        animation: slideInRight 0.4s ease-out forwards;
-    }
-    .pulse-glow {
-        animation: pulseGlow 2s infinite;
-    }
+    .fade-in { animation: fadeInUp 0.5s ease-out forwards; }
+    .slide-left { animation: slideInLeft 0.4s ease-out forwards; }
+    .slide-right { animation: slideInRight 0.4s ease-out forwards; }
+    .pulse-glow { animation: pulseGlow 2s infinite; }
 
-    /* Custom container */
     .main-container {
         max-width: 800px;
         margin: 0 auto;
         padding: 1rem;
     }
 
-    /* Title and header */
     .app-title {
         font-size: 2.2rem;
         font-weight: 700;
@@ -242,7 +259,6 @@ st.markdown("""
         font-weight: 400;
     }
 
-    /* Chat bubbles */
     .chat-bubble-ai {
         background: #ffffff;
         padding: 14px 20px;
@@ -277,7 +293,6 @@ st.markdown("""
         transition: all 0.2s ease;
     }
 
-    /* Form elements */
     .stForm {
         background: rgba(255,255,255,0.7);
         backdrop-filter: blur(10px);
@@ -312,7 +327,6 @@ st.markdown("""
         transform: scale(0.97);
     }
 
-    /* Radio buttons */
     .stRadio > div {
         display: flex;
         flex-wrap: wrap;
@@ -341,7 +355,6 @@ st.markdown("""
         box-shadow: 0 4px 14px rgba(27, 94, 140, 0.35);
     }
 
-    /* Number input */
     .stNumberInput input {
         border-radius: 30px !important;
         border: 2px solid #dce5ed !important;
@@ -354,7 +367,6 @@ st.markdown("""
         box-shadow: 0 0 0 3px rgba(30, 111, 159, 0.2);
     }
 
-    /* Sidebar */
     .css-1d391kg {
         background: #ffffffd9;
         backdrop-filter: blur(12px);
@@ -364,13 +376,11 @@ st.markdown("""
         padding: 1rem 0.5rem;
     }
 
-    /* Progress bar */
     .stProgress > div > div {
         background: linear-gradient(90deg, #0b3954, #1e6f9f) !important;
         border-radius: 30px;
     }
 
-    /* Metric cards */
     .metric-card {
         background: white;
         border-radius: 20px;
@@ -384,7 +394,6 @@ st.markdown("""
         box-shadow: 0 12px 28px rgba(0,0,0,0.06);
     }
 
-    /* Report boxes */
     .report-box {
         background: white;
         padding: 1.8rem;
@@ -394,6 +403,26 @@ st.markdown("""
         font-size: 0.95rem;
         line-height: 1.7;
         animation: fadeInUp 0.6s ease-out;
+    }
+
+    .ref-box {
+        background: #f8faff;
+        padding: 1.2rem 1.5rem;
+        border-radius: 16px;
+        border-left: 4px solid #6c757d;
+        margin-top: 1.5rem;
+        font-size: 0.9rem;
+        line-height: 1.6;
+        animation: fadeInUp 0.6s ease-out;
+    }
+    .ref-box li {
+        list-style-type: decimal;
+        margin-left: 1.5rem;
+        color: #2c3e50;
+    }
+    .ref-box a {
+        color: #1e6f9f;
+        text-decoration: none;
     }
 
     .warning-box {
@@ -418,7 +447,6 @@ st.markdown("""
         overflow-x: auto;
     }
 
-    /* Download button */
     .stDownloadButton button {
         background: linear-gradient(135deg, #28a745, #1e7e34) !important;
         box-shadow: 0 4px 14px rgba(40, 167, 69, 0.3);
@@ -433,49 +461,20 @@ st.markdown("""
         background: linear-gradient(135deg, #218838, #155d27) !important;
     }
 
-    /* Responsive tweaks */
     @media (max-width: 640px) {
-        .app-title {
-            font-size: 1.6rem;
-        }
-        .chat-bubble-ai, .chat-bubble-user {
-            font-size: 14px;
-            padding: 10px 14px;
-        }
-        .stForm {
-            padding: 1rem !important;
-        }
-        .stButton > button {
-            font-size: 0.9rem;
-            padding: 0.5rem 1.2rem;
-        }
-        .main-container {
-            padding: 0.5rem;
-        }
-        .stRadio label {
-            padding: 0.4rem 1rem;
-            font-size: 0.9rem;
-        }
+        .app-title { font-size: 1.6rem; }
+        .chat-bubble-ai, .chat-bubble-user { font-size: 14px; padding: 10px 14px; }
+        .stForm { padding: 1rem !important; }
+        .stButton > button { font-size: 0.9rem; padding: 0.5rem 1.2rem; }
+        .main-container { padding: 0.5rem; }
+        .stRadio label { padding: 0.4rem 1rem; font-size: 0.9rem; }
     }
 
-    /* Scroll bar styling */
-    ::-webkit-scrollbar {
-        width: 6px;
-        height: 6px;
-    }
-    ::-webkit-scrollbar-track {
-        background: #eef2f7;
-        border-radius: 10px;
-    }
-    ::-webkit-scrollbar-thumb {
-        background: #b0c4d9;
-        border-radius: 10px;
-    }
-    ::-webkit-scrollbar-thumb:hover {
-        background: #8aa0b9;
-    }
+    ::-webkit-scrollbar { width: 6px; height: 6px; }
+    ::-webkit-scrollbar-track { background: #eef2f7; border-radius: 10px; }
+    ::-webkit-scrollbar-thumb { background: #b0c4d9; border-radius: 10px; }
+    ::-webkit-scrollbar-thumb:hover { background: #8aa0b9; }
 
-    /* Hide default streamlit elements */
     #MainMenu {visibility: hidden;}
     footer {visibility: hidden;}
     .stDeployButton {display: none;}
@@ -485,7 +484,7 @@ st.markdown("""
 # --- Language Selection Sidebar ---
 with st.sidebar:
     st.markdown('<div class="sidebar-content">', unsafe_allow_html=True)
-    st.image("https://img.icons8.com/fluency/96/000000/doctor.png", width=80)  # Optional: replace with your own logo
+    st.image("https://img.icons8.com/fluency/96/000000/doctor.png", width=80)
     st.markdown("## 🌐 Language / ভাষা")
     lang = st.radio("Select Chat Language", ["English", "বাংলা"], index=0, label_visibility="collapsed")
     st.markdown("---")
@@ -526,7 +525,7 @@ def transition_to(new_step):
 # --- Main App Render ---
 st.markdown('<div class="main-container">', unsafe_allow_html=True)
 
-# Title with animation
+# Title
 st.markdown("""
     <div class="fade-in">
         <span class="app-title">🩸 DECat‑AI</span>
@@ -535,7 +534,7 @@ st.markdown("""
 """, unsafe_allow_html=True)
 st.markdown("---")
 
-# Chat history container
+# Chat history
 chat_container = st.container()
 with chat_container:
     for chat in st.session_state.chat_history:
@@ -698,18 +697,33 @@ else:
         patient_case_context = f"Patient Name: {st.session_state.patient_name}\nAge: {res['Age']}, Gender: {res['Gender']}\nSymptoms: {', '.join(active_symptoms) if active_symptoms else 'None'}\nVerdict: {verdict_str} ({confidence_str})"
         
         with st.spinner("🩺 Consulting clinical guidelines..."):
-            agent_report, _ = get_rag_agent_response(patient_case_context, lang)
+            agent_report, sources = get_rag_agent_response(patient_case_context, lang)
         with st.spinner("📄 Preparing your prescription document..."):
             english_prescription_report = get_english_prescription_insights(patient_case_context)
             
         st.markdown("## 🤖 AI Doctor Assessment Report")
         st.markdown(f'<div class="report-box">{agent_report}</div>', unsafe_allow_html=True)
         
+        # --- Display References ---
+        with st.expander("📚 References (Guidelines Consulted)", expanded=True):
+            ref_html = '<div class="ref-box"><ul>'
+            for src in sources:
+                ref_html += f'<li>{src}</li>'
+            ref_html += '</ul></div>'
+            st.markdown(ref_html, unsafe_allow_html=True)
+        
         warning_text_display = "⚠️ Warning: Preliminary screening report only. Consult a doctor." if lang == "English" else "⚠️ সতর্কবার্তা: প্রাথমিক স্ক্রিনিং রিপোর্ট মাত্র। ডাক্তারের পরামর্শ নিন।"
         st.markdown(f'<div class="warning-box">{warning_text_display}</div>', unsafe_allow_html=True)
         
         st.write(" ")
-        prescription_pdf = generate_prescription_pdf(st.session_state.patient_name, res, verdict_str, confidence_str, english_prescription_report)
+        prescription_pdf = generate_prescription_pdf(
+            st.session_state.patient_name, 
+            res, 
+            verdict_str, 
+            confidence_str, 
+            english_prescription_report,
+            sources  # passing sources to PDF
+        )
         st.download_button(
             label="📥 Download Prescription PDF",
             data=prescription_pdf,
