@@ -340,7 +340,7 @@ else:
     # ফলো-আপ চ্যাট বক্স
     st.markdown("#### 💬 Ask DECat-AI Doctor Anything (Follow-up Chat)")
     with st.form(key="followup_form", clear_on_submit=True):
-        patient_question = st.text_input("আপনার মনে কি কোনো প্রশ্ন আছে? এখানে লিখুন:", placeholder="Type your follow-up medical question here...")
+        patient_question = st.text_input("Any Question!", placeholder="Type your follow-up medical question here...")
         if st.form_submit_button("Ask Doctor 🩺") and patient_question.strip():
             record_chat("user", patient_question.strip())
             with st.spinner("Doctor is analyzing..."):
