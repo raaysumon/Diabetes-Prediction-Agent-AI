@@ -170,8 +170,8 @@ def build_clinical_pdf(patient_name, patient_data, verdict, confidence, english_
     doc = SimpleDocTemplate(buffer, pagesize=letter, rightMargin=40, leftMargin=40, topMargin=40, bottomMargin=40)
     story = []
     styles = getSampleStyleSheet()
-    title_style = ParagraphStyle('TStyle', parent=styles['Heading1'], fontSize=18, textColor=colors.HexColor('#bd2130'), alignment=1, spaceAfter=15, fontName='Helvetica-Bold')
-    sec_style = ParagraphStyle('SecStyle', parent=styles['Heading2'], fontSize=12, textColor=colors.HexColor('#004085'), spaceBefore=10, spaceAfter=5, fontName='Helvetica-Bold')
+    title_style = ParagraphStyle('TStyle', parent=styles['Heading1'], fontSize=18, textColor=colors.HexColor('#e63946'), alignment=1, spaceAfter=15, fontName='Helvetica-Bold')
+    sec_style = ParagraphStyle('SecStyle', parent=styles['Heading2'], fontSize=12, textColor=colors.HexColor('#4a90e2'), spaceBefore=10, spaceAfter=5, fontName='Helvetica-Bold')
     body_style = ParagraphStyle('BStyle', parent=styles['Normal'], fontSize=10, leading=14, textColor=colors.HexColor('#222222'), fontName='Helvetica')
     
     story.append(Paragraph("DECat-AI ADVANCED CLINICAL REPORT", title_style))
@@ -200,88 +200,93 @@ with st.sidebar:
     st.markdown("### ⚙️ Settings / সেটিংস")
     lang_selection = st.radio("System Interface Language:", ["English", "বাংলা"], index=0)
 
-# --- 8. MIDDLE CENTERED ULTRA-RESPONSIVE BLACK THEME CSS ---
+# --- 8. PREMIUM DARK MATTE (FRIENDLY MIDDLE DESIGN) CSS ---
 st.markdown("""
 <style>
     * {
         box-sizing: border-box !important;
     }
     
-    /* ব্যাকগ্রাউন্ড সম্পূর্ণ মিডল ব্ল্যাক এবং টেক্সট সাদা/ধূসর */
+    /* ব্যাকগ্রাউন্ড কুচকুচে কালো নয়, বরং একটি সুদিং প্রিমিয়াম ডার্ক মেটালিক চারকোল টোন */
     html, body, .stApp { 
         font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif !important;
-        background-color: #121212 !important; 
-        color: #e0e0e0 !important;
+        background-color: #1a1e24 !important; 
+        color: #e2e8f0 !important;
     }
     
-    /* মেইন বক্সকে একদম স্ক্রিনের মাঝখানে এলাইন করা ও সব নেটওয়ার্কে রেডি রাখা */
+    /* সাইডবার ব্যাকগ্রাউন্ড অ্যাডজাস্টমেন্ট */
+    section[data-testid="stSidebar"] {
+        background-color: #111418 !important;
+    }
+    
+    /* মেইন কন্টেন্ট বক্স সেন্টারড ও আল্ট্রা-রেসপন্সিভ */
     .main-wrapper { 
         max-width: 100% !important; 
-        width: 680px !important;
-        margin: 40px auto !important; 
-        padding: 20px !important; 
-        background-color: #1e1e1e !important; /* মাঝখানের বক্সটি ডার্ক ধূসর */
-        border-radius: 16px !important;
-        box-shadow: 0 8px 32px rgba(0,0,0,0.5) !important;
-        border: 1px solid #2d2d2d !important;
+        width: 720px !important;
+        margin: 30px auto !important; 
+        padding: 24px !important; 
+        background-color: #222933 !important; /* ফ্রেন্ডলি ডার্ক স্লেট কালার */
+        border-radius: 20px !important; /* মডার্ন কার্ভড বর্ডার */
+        box-shadow: 0 12px 40px rgba(0,0,0,0.4) !important;
+        border: 1px solid #2e3745 !important;
     }
     
     .header-logo { 
-        font-size: calc(1.4rem + 0.8vw) !important;
+        font-size: calc(1.5rem + 0.7vw) !important;
         font-weight: 700 !important; 
-        color: #ff3b30 !important; /* রেসপন্সিভ ভাইব্রেন্ট রেড */
+        color: #e63946 !important; /* চোখে না লাগা ফ্রেন্ডলি সফ্ট রেড */
         display: block !important;
         text-align: center !important;
-        margin-bottom: 10px !important;
+        margin-bottom: 5px !important;
     }
     
-    /* এআই চ্যাট বাবল - ডার্ক থিম সেফ ধূসর টোন */
+    /* এআই চ্যাট বাবল - মডার্ন ডার্ক নিউট্রাল টোন */
     .chat-bubble-ai { 
-        background-color: #2a2a2a !important; 
-        color: #f5f5f5 !important; 
-        padding: 14px 16px !important; 
-        border-radius: 12px !important; 
-        border-left: 5px solid #ff3b30 !important; 
-        margin-bottom: 15px !important; 
+        background-color: #2d3748 !important; 
+        color: #f7fafc !important; 
+        padding: 15px 18px !important; 
+        border-radius: 16px !important; 
+        border-left: 5px solid #e63946 !important; 
+        margin-bottom: 16px !important; 
         display: block !important;
         width: 100% !important;
         font-size: 15px !important; 
-        line-height: 1.5 !important;
-        word-wrap: break-word !important;
+        line-height: 1.6 !important;
+        box-shadow: 0 4px 12px rgba(0,0,0,0.15) !important;
     }
     
-    /* ইউজার চ্যাট বাবল - ব্রাইট রেড */
+    /* ইউজার চ্যাট বাবল - প্রিমিয়াম ডার্ক কোরাল রেড */
     .chat-bubble-user { 
-        background-color: #ff3b30 !important; 
+        background-color: #e63946 !important; 
         color: #ffffff !important; 
         padding: 12px 18px !important; 
-        border-radius: 12px !important; 
+        border-radius: 16px !important; 
         display: inline-block !important;
         float: right !important; 
         clear: both !important; 
-        margin-bottom: 15px !important; 
+        margin-bottom: 16px !important; 
         font-size: 15px !important; 
         max-width: 85% !important;
-        word-wrap: break-word !important;
-        box-shadow: 0 4px 12px rgba(255,59,48,0.2) !important;
+        box-shadow: 0 4px 14px rgba(230,57,70,0.25) !important;
     }
     
-    /* ইনপুট ফর্ম ও ইন্টারফেস অপ্টিমাইজেশন */
+    /* ডার্ক মোড ফ্রেন্ডলি ফর্ম কার্ড */
     div[data-testid="stForm"] {
-        background-color: #242424 !important;
-        border: 1px solid #3d3d3d !important;
-        border-radius: 12px !important;
-        padding: 20px !important;
+        background-color: #1a202c !important;
+        border: 1px solid #2d3748 !important;
+        border-radius: 16px !important;
+        padding: 22px !important;
+        box-shadow: inset 0 2px 4px rgba(0,0,0,0.2) !important;
     }
     
-    /* ফর্ম লেবেল ও ফন্ট কালার ফিক্স */
-    label, p, span {
-        color: #e0e0e0 !important;
+    /* স্ট্রিমলিট রেডিও এবং টেক্সট ইনপুট এর টেক্সট ফিক্স */
+    label, p, span, div[data-baseweb="radio"] {
+        color: #edf2f7 !important;
     }
 
-    /* মোবাইল স্ক্রিন রেসপন্সিভনেস ট্রিকস */
+    /* অল ডিভাইস রেসপন্সিভনেস নিশ্চিত করা */
     @media (max-width: 768px) {
-        .main-wrapper { margin: 10px auto !important; padding: 12px !important; border-radius: 8px !important; }
+        .main-wrapper { margin: 10px auto !important; padding: 15px !important; border-radius: 12px !important; }
         .chat-bubble-user { max-width: 90% !important; }
     }
 </style>
@@ -293,8 +298,8 @@ quiz_schema = [
     {"field": "Gender", "en": "Select biological sex parameter:", "bn": "আপনার জৈবিক লিঙ্গ নির্বাচন করুন:", "options": ["Male", "Female"]},
     {"field": "Polyuria", "en": "Do you experience excessive or unusually frequent urination (Polyuria)?", "bn": "আপনার কি অতিরিক্ত বা ঘন ঘন প্রস্রাবের সমস্যা (Polyuria) হচ্ছে?", "options": ["Yes", "No"]},
     {"field": "Polydipsia", "en": "Are you experiencing constant, extreme fluid thirst (Polydipsia)?", "bn": "আপনার কি প্রতিনিয়ত অতিরিক্ত বা অস্বাভাবিক তৃষ্ণা (Polydipsia) পাচ্ছে?", "options": ["Yes", "No"]},
-    {"field": "Irritability", "en": "Have you noticed any persistent patterns of sudden irritability or mood spikes?", "bn": "আপনি কি ইদানীং অতিরিক্ত খิตখিটতি মেজাজ বা মানসিক অস্থিরতা অনুভব করছেন?", "options": ["Yes", "No"]},
-    {"field": "Itching", "en": "Do you experience localized or generalized recurring skin itching?", "bn": "আপনার ত্বকে কি ঘন ঘন বা দীর্ঘস্থায়ী উল্লেখ্য চুলকানি হচ্ছে?", "options": ["Yes", "No"]},
+    {"field": "Irritability", "en": "Have you noticed any persistent patterns of sudden irritability or mood spikes?", "bn": "আপনি কি ইদানীং অতিরিক্ত খিটখিটে মেজাজ বা মানসিক অস্থিরতা অনুভব করছেন?", "options": ["Yes", "No"]},
+    {"field": "Itching", "en": "Do you experience localized or generalized recurring skin itching?", "bn": "আপনার ত্বকে কি ঘন ঘন বা দীর্ঘস্থায়ী চুলকানির সমস্যা হচ্ছে?", "options": ["Yes", "No"]},
     {"field": "delayed healing", "en": "Do surface cuts, scratches, or flesh wounds take a prolonged time to completely heal?", "bn": "আপনার শরীরের কোনো ক্ষত, কাটা বা স্ক্র্যাচ শুকাতে কি স্বাভাবিকের চেয়ে বেশি সময় লাগছে?", "options": ["Yes", "No"]},
     {"field": "Alopecia", "en": "Are you suffering from active, accelerated hair thinning or loss patches (Alopecia)?", "bn": "আপনার কি অতিরিক্ত চুল পড়া বা নির্দিষ্ট স্থান থেকে চুল উঠে যাওয়ার (Alopecia) লক্ষণ দেখা দিচ্ছে?", "options": ["Yes", "No"]}
 ]
@@ -311,7 +316,7 @@ def reroute_pipeline_to(next_node): st.session_state.step = next_node; st.rerun(
 
 st.markdown('<div class="main-wrapper">', unsafe_allow_html=True)
 st.markdown('<span class="header-logo">🩸 DECat‑AI Desk</span>', unsafe_allow_html=True)
-st.markdown("<hr style='border: 1px solid #2d2d2d;' />", unsafe_allow_html=True)
+st.markdown("<hr style='border: 1px solid #2e3745;' />", unsafe_allow_html=True)
 
 # Render previous chat history
 for message_bubble in st.session_state.chat_history:
