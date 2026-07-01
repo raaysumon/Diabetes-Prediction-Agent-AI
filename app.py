@@ -99,9 +99,8 @@ def load_model():
         if os.path.exists(model_path):
             model.load_model(model_path)
             return model
-        else:
-            return None
-    except Exception as e:
+        return None
+    except Exception:
         return None
 
 model = load_model()
@@ -294,13 +293,16 @@ if "chat_history" not in st.session_state:
 st.title("🩸 Early Diabetes Conversational AI Agent" if lang == "English" else "🩸 ডায়াবেটিস চ্যাটবট এআই এজেন্ট")
 st.markdown("---")
 
+# Safe Execution Guard to prevent flash error during rapid state transitions
+rerun_flag = False
+
 with st.container():
-    # Render Chat History
+    # Render Chat History safely
     for chat in st.session_state.chat_history:
-        if chat["role"] == "ai":
-            st.markdown(f'<div class="chat-bubble-ai">🤖 <b>DECat-AI:</b> {chat["text"]}</div>', unsafe_allow_html=True)
-        else:
-            st.markdown(f'<div style="width:100%; overflow:auto;"><div class="chat-bubble-user">👤 {chat["text"]}</div></div>', unsafe_allow_html=True)
+        if chat.get("role") == "ai":
+            st.markdown(f'<div class="chat-bubble-ai">🤖 <b>DECat-AI:</b> {chat.get("text", "")}</div>', unsafe_allow_html=True)
+        elif chat.get("role") == "user":
+            st.markdown(f'<div style="width:100%; overflow:auto;"><div class="chat-bubble-user">👤 {chat.get("text", "")}</div></div>', unsafe_allow_html=True)
 
     # --- STEP -2: ASK FOR PATIENT NAME ---
     if st.session_state.step == -2:
@@ -329,7 +331,7 @@ with st.container():
                 )
                 st.session_state.chat_history.append({"role": "ai", "text": welcome_back})
                 st.session_state.step = -1
-                st.rerun()
+                rerun_flag = True
 
     # --- STEP -1: NATURAL CHAT & SEAMLESS AUTOMATIC INTENT TRIGGER ---
     elif st.session_state.step == -1:
@@ -348,7 +350,7 @@ with st.container():
                 
                 if any(kw in text_clean for kw in positive_keywords):
                     st.session_state.step = 0
-                    st.rerun()
+                    rerun_flag = True
                 else:
                     with st.spinner("Thinking..."):
                         try:
@@ -378,9 +380,9 @@ with st.container():
                             ai_reply = "I see. Shall we start your early diabetes risk test now?" if lang == "English" else "বুঝতে পারলাম। আমরা কি এখন আপনার ডায়াবেটিস পরীক্ষাটি শুরু করতে পারি?"
                     
                     st.session_state.chat_history.append({"role": "ai", "text": ai_reply})
-                    st.rerun()
+                    rerun_flag = True
 
-    # --- 📋 STEP 0 to N: MEDICAL QUESTIONNAIRE (Blank States Enabled) ---
+    # --- 📋 STEP 0 to N: MEDICAL QUESTIONNAIRE ---
     elif 0 <= st.session_state.step < len(questions):
         current_q = questions[st.session_state.step]
         q_text = current_q["bn"] if lang == "বাংলা" else current_q["en"]
@@ -414,7 +416,7 @@ with st.container():
                         st.session_state.chat_history.append({"role": "ai", "text": q_text})
                         st.session_state.chat_history.append({"role": "user", "text": user_choice})
                         st.session_state.step += 1
-                        st.rerun()
+                        rerun_flag = True
             else:
                 user_val = st.number_input(
                     "Enter your age:", 
@@ -435,14 +437,14 @@ with st.container():
                         st.session_state.chat_history.append({"role": "ai", "text": q_text})
                         st.session_state.chat_history.append({"role": "user", "text": user_choice})
                         st.session_state.step += 1
-                        st.rerun()
+                        rerun_flag = True
 
     # --- 📊 FINAL EVALUATION & REPORT RENDERING ---
     else:
         st.write("---")
         
         if model is None:
-            st.error("Model file (.cbm) missing or failed to load. Please ensure 'final_catboost_modol.cbm' is in the same directory." if lang == "English" else "মডেল ফাইলটি (.cbm) খুঁজে পাওয়া যায়নি। দয়া করে নিশ্চিত করুন ফাইলটি একই ডিরেক্টরিতে আছে।")
+            st.error("Model file (.cbm) missing or failed to load. Please ensure 'final_catboost_modol.cbm' is in the same directory.")
         else:
             res = st.session_state.user_responses
             input_df = pd.DataFrame([res])
@@ -529,6 +531,10 @@ with st.container():
             st.session_state.user_responses = {}
             st.session_state.chat_history = []
             st.rerun()
+
+# --- Post-Container Safe Rerun Executor ---
+if rerun_flag:
+    st.rerun()
 
 # --- Footer ---
 st.write("---")
