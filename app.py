@@ -200,14 +200,26 @@ with st.sidebar:
     st.markdown("### ⚙️ Settings / সেটিংস")
     lang_selection = st.radio("System Interface Language:", ["English", "বাংলা"], index=0)
 
-# --- 8. PREMIUM DARK MATTE WITH ULTRA FRIENDLY BUTTONS CSS ---
+# --- 8. PREMIUM DARK MATTE (TOP BAR REMOVED) CSS ---
 st.markdown("""
 <style>
     * {
         box-sizing: border-box !important;
     }
     
-    /* ব্যাকগ্রাউন্ড কুচকুচে কালো নয়, বরং একটি সুদিং প্রিমিয়াম ডার্ক মেটালিক চারকোল টোন */
+    /* 🛠️ ১. ওপুরের সাদা টপ বার এবং মেনু বার চিরতরে লুকিয়ে ফেলার ফিক্স */
+    header[data-testid="stHeader"] {
+        background-color: transparent !important;
+        background: transparent !important;
+        height: 0px !important;
+        display: none !important;
+    }
+    
+    div[data-testid="stToolbar"] {
+        display: none !important;
+    }
+    
+    /* ব্যাকগ্রাউন্ড কুচকুচে কালো নয়, বরং একটি চমৎকার ডার্ক মেটালিক চারকোল টোন */
     html, body, .stApp { 
         font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif !important;
         background-color: #1a1e24 !important; 
@@ -222,7 +234,7 @@ st.markdown("""
     .main-wrapper { 
         max-width: 100% !important; 
         width: 720px !important;
-        margin: 30px auto !important; 
+        margin: 20px auto !important; 
         padding: 24px !important; 
         background-color: #222933 !important; 
         border-radius: 20px !important; 
@@ -239,11 +251,11 @@ st.markdown("""
         margin-bottom: 5px !important;
     }
     
-    /* এআই চ্যাট বাবল */
+    /* 🛠️ ২. এআই চ্যাট বাবল প্যাডিং ফিক্স (লেখা বাম পাশে চেপে থাকবে না) */
     .chat-bubble-ai { 
         background-color: #2d3748 !important; 
         color: #f7fafc !important; 
-        padding: 15px 18px !important; 
+        padding: 16px 20px !important; 
         border-radius: 16px !important; 
         border-left: 5px solid #e63946 !important; 
         margin-bottom: 16px !important; 
@@ -254,11 +266,11 @@ st.markdown("""
         box-shadow: 0 4px 12px rgba(0,0,0,0.15) !important;
     }
     
-    /* ইউজার চ্যাট বাবল */
+    /* 🛠️ ৩. ইউজার চ্যাট বাবল প্যাডিং ও ইমোজি অ্যালাইনমেন্ট ফিক্স */
     .chat-bubble-user { 
         background-color: #e63946 !important; 
         color: #ffffff !important; 
-        padding: 12px 18px !important; 
+        padding: 14px 20px !important; 
         border-radius: 16px !important; 
         display: inline-block !important;
         float: right !important; 
@@ -278,10 +290,10 @@ st.markdown("""
         box-shadow: inset 0 2px 4px rgba(0,0,0,0.2) !important;
     }
     
-    /* 🛠️ বাটনের ফ্রেন্ডলি ফিক্স (১০০% রিডাবল এবং প্রিমিয়াম লুক) */
+    /* বাটনের ফ্রেন্ডলি ফিক্স */
     div[data-testid="stForm"] button, .stButton button {
-        background-color: #e63946 !important; /* সলিড প্রিমিয়াম রেড ব্যাকগ্রাউন্ড */
-        color: #ffffff !important; /* ১০০% পরিষ্কার সাদা টেক্সট */
+        background-color: #e63946 !important; 
+        color: #ffffff !important; 
         border: none !important;
         padding: 10px 24px !important;
         font-size: 15px !important;
@@ -293,11 +305,10 @@ st.markdown("""
     }
     
     div[data-testid="stForm"] button:hover, .stButton button:hover {
-        background-color: #cc323f !important; /* হোভার করলে সামান্য ডার্ক শেড */
+        background-color: #cc323f !important; 
         transform: translateY(-1px) !important;
     }
 
-    /* ইনপুট ফিল্ডের ব্যাকগ্রাউন্ড ফিক্স */
     input {
         background-color: #2d3748 !important;
         color: #ffffff !important;
