@@ -96,10 +96,12 @@ def load_model():
     current_dir = os.path.dirname(__file__)
     model_path = os.path.join(current_dir, "final_catboost_modol.cbm")
     try:
-        model.load_model(model_path)
-        return model
+        if os.path.exists(model_path):
+            model.load_model(model_path)
+            return model
+        else:
+            return None
     except Exception as e:
-        st.error(f"Error loading model: {e}")
         return None
 
 model = load_model()
@@ -438,16 +440,17 @@ with st.container():
     # --- 📊 FINAL EVALUATION & REPORT RENDERING ---
     else:
         st.write("---")
-        st.success("All clinical tokens captured. Computing predictive algorithms..." if lang == "English" else "সব তথ্য সফলভাবে সংগৃহীত হয়েছে! প্রোফাইল বিশ্লেষণ করা হচ্ছে...")
         
-        res = st.session_state.user_responses
-        input_df = pd.DataFrame([res])
-        
-        for col in input_df.columns:
-            if col != 'Age':
-                input_df[col] = input_df[col].astype('category')
-                
-        if model is not None:
+        if model is None:
+            st.error("Model file (.cbm) missing or failed to load. Please ensure 'final_catboost_modol.cbm' is in the same directory." if lang == "English" else "মডেল ফাইলটি (.cbm) খুঁজে পাওয়া যায়নি। দয়া করে নিশ্চিত করুন ফাইলটি একই ডিরেক্টরিতে আছে।")
+        else:
+            res = st.session_state.user_responses
+            input_df = pd.DataFrame([res])
+            
+            for col in input_df.columns:
+                if col != 'Age':
+                    input_df[col] = input_df[col].astype('category')
+                    
             prediction = model.predict(input_df)[0]
             probability = model.predict_proba(input_df)[0]
             
