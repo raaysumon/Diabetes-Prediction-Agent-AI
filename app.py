@@ -170,9 +170,11 @@ def build_clinical_pdf(patient_name, patient_data, verdict, confidence, english_
     doc = SimpleDocTemplate(buffer, pagesize=letter, rightMargin=40, leftMargin=40, topMargin=40, bottomMargin=40)
     story = []
     styles = getSampleStyleSheet()
-    title_style = ParagraphStyle('TStyle', parent=styles['Heading1'], fontSize=18, textColor=colors.HexColor('#bd2130'), alignment=1, spaceAfter=15, fontName='Helvetica-Bold')
-    sec_style = ParagraphStyle('SecStyle', parent=styles['Heading2'], fontSize=12, textColor=colors.HexColor('#004085'), spaceBefore=10, spaceAfter=5, fontName='Helvetica-Bold')
-    body_style = ParagraphStyle('BStyle', parent=styles['Normal'], fontSize=10, leading=14, textColor=colors.HexColor('#222222'), fontName='Helvetica')
+    
+    # লো-এন্ড পিডিএফ রিডারের জন্য সেফ স্ট্যান্ডার্ড কালার এবং মেজারমেন্ট ফিক্স
+    title_style = ParagraphStyle('TStyle', parent=styles['Heading1'], fontSize=16, textColor=colors.HexColor('#d32f2f'), alignment=1, spaceAfter=15, fontName='Helvetica-Bold')
+    sec_style = ParagraphStyle('SecStyle', parent=styles['Heading2'], fontSize=12, textColor=colors.HexColor('#1976d2'), spaceBefore=10, spaceAfter=5, fontName='Helvetica-Bold')
+    body_style = ParagraphStyle('BStyle', parent=styles['Normal'], fontSize=10, leading=14, textColor=colors.HexColor('#212121'), fontName='Helvetica')
     
     story.append(Paragraph("DECat-AI ADVANCED CLINICAL REPORT", title_style))
     story.append(Paragraph(f"<b>Patient Name:</b> {patient_name}", body_style))
@@ -198,12 +200,34 @@ def build_clinical_pdf(patient_name, patient_data, verdict, confidence, english_
 # --- 7. MODERN UI CSS INJECTION ---
 st.markdown("""
 <style>
-    @import url('https://fonts.googleapis.com/css2?family=Inter:wght=300;400;500;600;700&display=swap');
-    html, body, .stApp { font-family: 'Inter', sans-serif; background-color: #fcfdfe; }
-    .main-wrapper { max-width: 820px; margin: 0 auto; padding: 10px; }
-    .header-logo { font-size: 2.3rem; font-weight: 700; color: #9a031e; letter-spacing: -0.5px; }
-    .chat-bubble-ai { background: #ffffff; padding: 16px; border-radius: 14px; border-left: 5px solid #bd2130; margin-bottom: 12px; box-shadow: 0 4px 12px rgba(0,0,0,0.03); font-size: 15px; color: #2b2d42; }
-    .chat-bubble-user { background: #bd2130; color: #ffffff; padding: 12px 18px; border-radius: 14px; float: right; clear: both; margin-bottom: 12px; font-size: 15px; box-shadow: 0 3px 8px rgba(189,33,48,0.2); }
+    /* সিস্টেমের ডিফল্ট ফন্ট ব্যবহার করা হয়েছে যা সব ডিভাইস ও ওল্ড ওএসে বিল্ট-ইন থাকে (নেটওয়ার্ক সেভিং) */
+    html, body, .stApp { 
+        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; 
+        background-color: #fcfdfe; 
+    }
+    .main-wrapper { max-width: 800px; margin: 0 auto; padding: 10px; }
+    .header-logo { font-size: 2rem; font-weight: 700; color: #d32f2f; }
+    
+    /* থিম এবং শ্যাডো রিমুভ করে ফ্ল্যাট ডিজাইন দেওয়া হয়েছে যাতে স্ক্রিন বা রেন্ডারিং স্লো না হয় */
+    .chat-bubble-ai { 
+        background: #f8f9fa; 
+        padding: 14px; 
+        border-radius: 8px; 
+        border-left: 4px solid #d32f2f; 
+        margin-bottom: 12px; 
+        font-size: 15px; 
+        color: #212121; 
+    }
+    .chat-bubble-user { 
+        background: #d32f2f; 
+        color: #ffffff; 
+        padding: 12px 16px; 
+        border-radius: 8px; 
+        float: right; 
+        clear: both; 
+        margin-bottom: 12px; 
+        font-size: 15px; 
+    }
 </style>
 """, unsafe_allow_html=True)
 
@@ -218,7 +242,7 @@ quiz_schema = [
     {"field": "Gender", "en": "Select biological sex parameter:", "bn": "আপনার জৈবিক লিঙ্গ নির্বাচন করুন:", "options": ["Male", "Female"]},
     {"field": "Polyuria", "en": "Do you experience excessive or unusually frequent urination (Polyuria)?", "bn": "আপনার কি অতিরিক্ত বা ঘন ঘন প্রস্রাবের সমস্যা (Polyuria) হচ্ছে?", "options": ["Yes", "No"]},
     {"field": "Polydipsia", "en": "Are you experiencing constant, extreme fluid thirst (Polydipsia)?", "bn": "আপনার কি প্রতিনিয়ত অতিরিক্ত বা অস্বাভাবিক তৃষ্ণা (Polydipsia) পাচ্ছে?", "options": ["Yes", "No"]},
-    {"field": "Irritability", "en": "Have you noticed any persistent patterns of sudden irritability or mood spikes?", "bn": "আপনি কি ইদানীং অতিরিক্ত খিটכיটে মেজাজ বা মানসিক অস্থিরতা অনুভব করছেন?", "options": ["Yes", "No"]},
+    {"field": "Irritability", "en": "Have you noticed any persistent patterns of sudden irritability or mood spikes?", "bn": "আপনি কি ইদানীং অতিরিক্ত খิตຂিটটি মেজাজ বা মানসিক অস্থিরতা অনুভব করছেন?", "options": ["Yes", "No"]},
     {"field": "Itching", "en": "Do you experience localized or generalized recurring skin itching?", "bn": "আপনার ত্বকে কি ঘন ঘন বা দীর্ঘস্থায়ী চুলকানির সমস্যা হচ্ছে?", "options": ["Yes", "No"]},
     {"field": "delayed healing", "en": "Do surface cuts, scratches, or flesh wounds take a prolonged time to completely heal?", "bn": "আপনার শরীরের কোনো ক্ষত, কাটা বা স্ক্র্যাচ শুকাতে কি স্বাভাবিকের চেয়ে বেশি সময় লাগছে?", "options": ["Yes", "No"]},
     {"field": "Alopecia", "en": "Are you suffering from active, accelerated hair thinning or loss patches (Alopecia)?", "bn": "আপনার কি অতিরিক্ত চুল পড়া বা নির্দিষ্ট স্থান থেকে চুল উঠে যাওয়ার (Alopecia) লক্ষণ দেখা দিচ্ছে?", "options": ["Yes", "No"]}
@@ -274,7 +298,7 @@ elif st.session_state.step == -1:
                 record_chat("ai", hold_reply)
                 reroute_pipeline_to(-3)
 
-# STEP -3: HOLD STATE (ডুপ্লিকেশন এড়ানোর ডেডিকেটেড নোড)
+# STEP -3: HOLD STATE
 elif st.session_state.step == -3:
     st.write(" ")
     btn_label = "Start Screening Test Now 🚀" if lang_selection == "English" else "এখনই স্ক্রীনিং টেস্ট শুরু করুন 🚀"
