@@ -1,0 +1,211 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>DECat-AI Desk</title>
+    <style>
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body { 
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Arial, sans-serif; 
+            background-color: #fcfdfe; 
+            color: #212121;
+            padding: 20px;
+        }
+        .container { max-width: 650px; margin: 0 auto; background: white; padding: 20px; border-radius: 8px; box-shadow: 0 2px 5px rgba(0,0,0,0.05); }
+        h1 { color: #d32f2f; margin-bottom: 20px; font-size: 1.8rem; text-align: center; }
+        .lang-select { margin-bottom: 15px; text-align: right; }
+        select { padding: 5px; border-radius: 4px; border: 1px solid #ccc; }
+        .chat-box { min-height: 200px; max-height: 400px; overflow-y: auto; border: 1px solid #eee; padding: 10px; margin-bottom: 15px; border-radius: 6px; }
+        .bubble { padding: 12px; margin-bottom: 10px; border-radius: 8px; font-size: 15px; max-width: 85%; line-height: 1.4; }
+        .ai { background: #f8f9fa; border-left: 4px solid #d32f2f; float: left; clear: both; }
+        .user { background: #d32f2f; color: white; float: right; clear: both; }
+        .input-area { display: flex; gap: 10px; margin-top: 15px; }
+        input[type="text"], input[type="number"] { flex: 1; padding: 10px; border: 1px solid #ccc; border-radius: 4px; font-size: 15px; }
+        button { background: #d32f2f; color: white; border: none; padding: 10px 20px; border-radius: 4px; cursor: pointer; font-size: 15px; }
+        button:hover { background: #b71c1c; }
+        .options-group { display: flex; gap: 10px; margin-top: 10px; clear: both; }
+        .opt-btn { background: #e0e0e0; color: #212121; }
+        .opt-btn:hover { background: #ccc; }
+        .result-box { display: none; margin-top: 20px; padding: 15px; border-radius: 6px; }
+        .risk { background: #ffebee; border: 1px solid #ffcdd2; color: #c62828; }
+        .no-risk { background: #e8f5e9; border: 1px solid #c8e6c9; color: #2e7d32; }
+        .report-text { white-space: pre-wrap; font-size: 14px; margin-top: 15px; color: #333; line-height: 1.5; }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <h1>🩸 DECat-AI Desk</h1>
+    
+    <div class="lang-select">
+        <label>Language: </label>
+        <select id="lang" onchange="changeLanguage()">
+            <option value="English">English</option>
+            <option value="বাংলা">বাংলা</option>
+        </select>
+    </div>
+
+    <div class="chat-box" id="chatBox"></div>
+    <div id="interactionArea"></div>
+
+    <div class="result-box" id="resultBox">
+        <h3 id="verdictHeader"></h3>
+        <div class="report-text" id="reportText"></div>
+        <button onclick="resetQuiz()" style="margin-top:15px; background:#555;">Reset 🔄</button>
+    </div>
+</div>
+
+<script>
+    let currentStep = -2; 
+    let language = "English";
+    let patientName = "";
+    let responses = {};
+    
+    const schema = [
+        { field: "Age", type: "number", en: "Please provide your current age (Years):", bn: "আপনার বর্তমান বয়স কত (বছর)?" },
+        { field: "Gender", type: "options", options: ["Male", "Female"], en: "Select biological sex parameter:", bn: "আপনার জৈবিক লিঙ্গ নির্বাচন করুন:" },
+        { field: "Polyuria", type: "options", options: ["Yes", "No"], en: "Do you experience excessive or unusually frequent urination (Polyuria)?", bn: "আপনার কি অতিরিক্ত বা ঘন ঘন প্রস্রাবের সমস্যা (Polyuria) হচ্ছে?" },
+        { field: "Polydipsia", type: "options", options: ["Yes", "No"], en: "Are you experiencing constant, extreme fluid thirst (Polydipsia)?", bn: "আপনার কি প্রতিনিয়ত অতিরিক্ত বা অস্বাভাবিক তৃষ্ণা (Polydipsia) পাচ্ছে?" },
+        { field: "Irritability", type: "options", options: ["Yes", "No"], en: "Have you noticed any persistent patterns of sudden irritability or mood spikes?", bn: "আপনি কি ইদানীং অতিরিক্ত খিটখিটে মেজাজ বা মানসিক অস্থিরতা অনুভব করছেন?" },
+        { field: "Itching", type: "options", options: ["Yes", "No"], en: "Do you experience localized or generalized recurring skin itching?", bn: "আপনার ত্বকে কি ঘন ঘন বা দীর্ঘস্থায়ী চুলকানির সমস্যা হচ্ছে?" },
+        { field: "delayed healing", type: "options", options: ["Yes", "No"], en: "Do surface cuts, scratches, or flesh wounds take a prolonged time to completely heal?", bn: "আপনার শরীরের কোনো ক্ষত, কাটা বা স্ক্র্যাচ শুকাতে কি স্বাভাবিকের চেয়ে বেশি সময় লাগছে?" },
+        { field: "Alopecia", type: "options", options: ["Yes", "No"], en: "Are you suffering from active, accelerated hair thinning or loss patches (Alopecia)?", bn: "আপনার কি অতিরিক্ত চুল পড়া বা নির্দিষ্ট স্থান থেকে চুল উঠে যাওয়ার (Alopecia) লক্ষণ দেখা দিচ্ছে?" }
+    ];
+
+    function addBubble(text, sender) {
+        const chatBox = document.getElementById("chatBox");
+        const bubble = document.createElement("div");
+        bubble.className = `bubble ${sender}`;
+        bubble.innerHTML = `<b>${sender === 'ai' ? 'DECat-AI' : 'You'}:</b> ${text}`;
+        chatBox.appendChild(bubble);
+        chatBox.scrollTop = chatBox.scrollHeight;
+    }
+
+    function changeLanguage() {
+        language = document.getElementById("lang").value;
+        resetQuiz();
+    }
+
+    function renderInputArea() {
+        const area = document.getElementById("interactionArea");
+        area.innerHTML = "";
+
+        if (currentStep === -2) {
+            let q = language === "English" ? "Hello! Before we talk about your health, could you please tell me your full name?" : "হ্যালো! আপনার স্বাস্থ্য নিয়ে কথা বলার আগে, আমি কি আপনার সম্পূর্ণ নামটা জানতে পারি?";
+            addBubble(q, "ai");
+            area.innerHTML = `<div class="input-area">
+                <input type="text" id="nameInp" placeholder="Name...">
+                <button onclick="handleNameSubmit()">Next ➡️</button>
+            </div>`;
+        } 
+        else if (currentStep === -1) {
+            let q = language === "English" ? `Nice to meet you, ${patientName}. Would you like to check your diabetes risks with a quick screening test?` : `আপনার সাথে পরিচিত হয়ে ভালো লাগলো, ${patientName}। আপনি কি ছোট একটা স্ক্রীনিং টেস্ট করতে চান?`;
+            addBubble(q, "ai");
+            area.innerHTML = `<div class="options-group">
+                <button class="opt-btn" onclick="handleConsent('START')">${language==='English'?'Yes':'হ্যাঁ'}</button>
+                <button class="opt-btn" onclick="handleConsent('HOLD')">${language==='English'?'No':'না'}</button>
+            </div>`;
+        }
+        else if (currentStep >= 0 && currentStep < schema.length) {
+            let q = language === "English" ? schema[currentStep].en : schema[currentStep].bn;
+            addBubble(q, "ai");
+
+            if (schema[currentStep].type === "number") {
+                area.innerHTML = `<div class="input-area">
+                    <input type="number" id="ageInp" min="1" max="120">
+                    <button onclick="handleAgeSubmit()">Next ➡️</button>
+                </div>`;
+            } else {
+                let opts = schema[currentStep].options;
+                let html = `<div class="options-group">`;
+                opts.forEach(o => {
+                    let label = o;
+                    if (language === "বাংলা") {
+                        if (o === "Yes") label = "হ্যাঁ";
+                        if (o === "No") label = "না";
+                        if (o === "Male") label = "পুরুষ";
+                        if (o === "Female") label = "নারী";
+                    }
+                    html += `<button class="opt-btn" onclick="handleOptionSubmit('${o}', '${label}')">${label}</button>`;
+                });
+                html += `</div>`;
+                area.innerHTML = html;
+            }
+        } else if (currentStep === schema.length) {
+            area.innerHTML = `<div>Processing screening data... ⏳</div>`;
+            submitData();
+        }
+    }
+
+    function handleNameSubmit() {
+        let val = document.getElementById("nameInp").value.trim();
+        if(!val) return;
+        patientName = val;
+        addBubble(patientName, "user");
+        currentStep = -1;
+        renderInputArea();
+    }
+
+    function handleConsent(status) {
+        addBubble(status === 'START' ? (language==='English'?'Yes':'হ্যাঁ') : (language==='English'?'No':'না'), "user");
+        if (status === 'START') {
+            currentStep = 0;
+            renderInputArea();
+        } else {
+            addBubble(language==='English'?'Screening on hold. Reload to start.':'টেস্ট স্থগিত করা হয়েছে। শুরু করতে পেজ রিলোড করুন।', "ai");
+            document.getElementById("interactionArea").innerHTML = "";
+        }
+    }
+
+    function handleAgeSubmit() {
+        let val = document.getElementById("ageInp").value;
+        if(!val) return;
+        responses[schema[currentStep].field] = parseInt(val);
+        addBubble(val, "user");
+        currentStep++;
+        renderInputArea();
+    }
+
+    function handleOptionSubmit(value, label) {
+        responses[schema[currentStep].field] = value;
+        addBubble(label, "user");
+        currentStep++;
+        renderInputArea();
+    }
+
+    function submitData() {
+        fetch('/api/predict', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ name: patientName, lang: language, responses: responses })
+        })
+        .then(res => res.json())
+        .then(data => {
+            document.getElementById("interactionArea").innerHTML = "";
+            let resultBox = document.getElementById("resultBox");
+            resultBox.style.display = "block";
+            resultBox.className = "result-box " + (data.has_risk ? "risk" : "no-risk");
+            
+            document.getElementById("verdictHeader").innerText = `${data.verdict} (${data.confidence})`;
+            document.getElementById("reportText").innerText = data.report;
+        })
+        .catch(err => {
+            alert("Error communicating with server.");
+        });
+    }
+
+    function resetQuiz() {
+        currentStep = -2;
+        responses = {};
+        document.getElementById("chatBox").innerHTML = "";
+        document.getElementById("resultBox").style.display = "none";
+        renderInputArea();
+    }
+
+    // Initial Trigger
+    renderInputArea();
+</script>
+
+</body>
+</html>
