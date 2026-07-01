@@ -57,8 +57,26 @@ def load_clinical_knowledge_base():
         }
     ]
 
-# --- 4. DYNAMIC AUTOMATED RAG ENGINE (FIXED SIMILARITY MATCH) ---
-def real_rag_retrieval(patient_symptoms_string, similarity_threshold=0.02):
+# --- INTENT CLASSIFIER ENGINE (ইউজারের অসম্মতি বা 'পরে করব' ট্র্যাক করার জন্য) ---
+def check_user_consent_intent(user_text):
+    try:
+        client = Groq(api_key=GROQ_API_KEY)
+        system_prompt = (
+            "Analyze the user's intent to start a medical screening right now. "
+            "If they say yes, okay, start, sure, or show positive intent, reply ONLY with 'START'. "
+            "If they say next day, later, no, not now, how are you, or deflect, reply ONLY with 'HOLD'."
+        )
+        completion = client.chat.completions.create(
+            model="llama-3.1-8b-instant",
+            messages=[{"role": "system", "content": system_prompt}, {"role": "user", "content": user_text}],
+            temperature=0.01, max_tokens=5
+        )
+        return completion.choices[0].message.content.strip()
+    except Exception:
+        return "START" # ফলব্যাক হিসেবে চালু রাখা হলো
+
+# --- 4. DYNAMIC AUTOMATED RAG ENGINE WITH CITATIONS ---
+def real_rag_retrieval(patient_symptoms_string, similarity_threshold=0.01):
     corpus = load_clinical_knowledge_base()
     documents = [f"{doc['text']} {doc['keywords']}" for doc in corpus]
     
@@ -72,7 +90,6 @@ def real_rag_retrieval(patient_symptoms_string, similarity_threshold=0.02):
         if score >= similarity_threshold:
             retrieved_chunks.append(corpus[idx])
             
-    # যদি নির্দিষ্ট কোনো ম্যাচ না পাওয়া যায় তবেই কেবল ফলব্যাক ডিফেন্ডার লোড হবে
     if not retrieved_chunks:
         retrieved_chunks = [corpus[3], corpus[4]]
     return retrieved_chunks
@@ -85,7 +102,8 @@ def generate_rag_clinical_assessment(patient_name, prediction_label, confidence,
         system_prompt = (
             f"You are DECat-AI, a helpful digital clinician specializing in Diabetes Risk Screening. {lang_rule}\n"
             f"Explain the diagnostic risk dynamically based on CatBoost: {prediction_label} ({confidence}).\n"
-            f"Advise tests and structure cleanly using header fields: 'Diagnostic Guidance', 'Dietary Action Plan', and 'Lifestyle Protocol'. No markdown math symbols. Always cite sources used."
+            f"Advise tests and structure cleanly using header fields: 'Diagnostic Guidance', 'Dietary Action Plan', and 'Lifestyle Protocol'.\n"
+            f"CRITICAL: Always append the clinical citation names inline at the end of relevant paragraphs, e.g., (Source: WHO 2023)."
         )
         completion = client.chat.completions.create(
             model="llama-3.1-8b-instant",
@@ -104,7 +122,7 @@ def generate_followup_answer(user_question, language, patient_context, verdict, 
         system_prompt = (
             f"You are DECat-AI, the patient's digital doctor. Answer the patient's follow-up question strictly in {language}.\n"
             f"CRITICAL RULE: Your answer MUST align perfectly with the CatBoost ML result ({verdict} with {confidence} confidence) and the provided RAG Guidelines.\n"
-            f"Mention clinical citations like (WHO 2023) or (ADA 2024) if relevant. Be professional, caring, and clear."
+            f"Explicitly mention citations like (World Health Organization, 2023) or (American Diabetes Association, 2024) inside the response text when talking about guidelines."
         )
         user_payload = f"Patient Question: {user_question}\n\nEstablished Screening Context:\n- Result: {verdict}\n- Metrics: {patient_context}\n- RAG Knowledge:\n{context_str}"
         
@@ -124,13 +142,13 @@ def generate_pdf_prescription_insights(patient_context, matched_chunks):
         completion = client.chat.completions.create(
             model="llama-3.1-8b-instant",
             messages=[
-                {"role": "system", "content": "Summarize recommendations in English. Keys: DIAGNOSTIC ADVICE:, DIETARY MODIFICATIONS:, LIFESTYLE PROTOCOL:. Mention citations in line. Plain text only."},
+                {"role": "system", "content": "Summarize recommendations in English. Keys: DIAGNOSTIC ADVICE:, DIETARY MODIFICATIONS:, LIFESTYLE PROTOCOL:. Include source names inline. Plain text only."},
                 {"role": "user", "content": f"Context:\n{context_str}\nMetrics:\n{patient_context}"}
             ], temperature=0.01, max_tokens=250
         )
         return completion.choices[0].message.content
     except Exception:
-        return "DIAGNOSTIC ADVICE:\n- Order immediate HbA1c screening."
+        return "DIAGNOSTIC ADVICE:\n- Order immediate HbA1c screening (WHO 2023)."
 
 # --- 5. CATBOOST ML MODEL LOADER ---
 @st.cache_resource
@@ -162,14 +180,14 @@ def build_clinical_pdf(patient_name, patient_data, verdict, confidence, english_
     story.append(Paragraph(f"<b>Confidence:</b> {confidence}", body_style))
     story.append(Spacer(1, 15))
     
-    story.append(Paragraph("CLINICAL RECOMMENDATIONS", sec_style))
+    story.append(Paragraph("CLINICAL RECOMMENDATIONS WITH EVIDENCE", sec_style))
     clean_text = english_report.replace(">", " greater than ").replace("<", " less than ").replace("%", " percent ")
     for line in clean_text.split("\n"):
         if line.strip():
             story.append(Paragraph(line.strip().replace("&", "&amp;"), body_style))
     
     story.append(Spacer(1, 15))
-    story.append(Paragraph("EVIDENCE BASE", sec_style))
+    story.append(Paragraph("OFFICIAL EVIDENCE BASE CITATIONS", sec_style))
     for chunk in matched_chunks:
         story.append(Paragraph(f"- {chunk['citation']}", body_style))
         
@@ -220,6 +238,7 @@ st.markdown('<div class="main-wrapper">', unsafe_allow_html=True)
 st.markdown('<span class="header-logo">🩸 DECat‑AI Desk</span>', unsafe_allow_html=True)
 st.markdown("---")
 
+# চ্যাট হিস্টোরি রেন্ডারিং
 for message_bubble in st.session_state.chat_history:
     if message_bubble["role"] == "ai":
         st.markdown(f'<div class="chat-bubble-ai">🤖 <b>DECat-AI:</b> {message_bubble["text"]}</div>', unsafe_allow_html=True)
@@ -237,15 +256,25 @@ if st.session_state.step == -2:
             record_chat("ai", init_greeting); record_chat("user", raw_name.strip())
             reroute_pipeline_to(-1)
 
-# STEP -1: COMPLIANCE
+# STEP -1: COMPLIANCE WITH INTENT PROTECTION (FIXED)
 elif st.session_state.step == -1:
     consent_prompt = f"Nice to meet you, {st.session_state.patient_name}. Would you like to check your diabetes risks with a quick screening test?" if lang_selection == "English" else f"আপনার সাথে পরিচিত হয়ে ভালো লাগলো, {st.session_state.patient_name}। আপনি কি ছোট একটা স্ক্রীনিং টেস্ট করতে চান?"
     st.markdown(f'<div class="chat-bubble-ai">🤖 <b>DECat-AI:</b> {consent_prompt}</div>', unsafe_allow_html=True)
     with st.form(key="consent_node"):
         consent_reply = st.text_input("Your Response / উত্তর দিন")
         if st.form_submit_button("Submit 🚀") and consent_reply.strip():
-            record_chat("ai", consent_prompt); record_chat("user", consent_reply.strip())
-            reroute_pipeline_to(0)
+            # ইন্টেন্ট এনালাইসিস চালানো হচ্ছে
+            intent_result = check_user_consent_intent(consent_reply.strip())
+            
+            if intent_result == "START":
+                record_chat("ai", consent_prompt); record_chat("user", consent_reply.strip())
+                reroute_pipeline_to(0)
+            else:
+                # ইউজার পরে করতে চাইলে বা অন্য কথা বললে তাকে এখানেই হোল্ড করা হবে
+                record_chat("ai", consent_prompt); record_chat("user", consent_reply.strip())
+                hold_reply = "Sure, no problem! Whenever you are ready to take the screening test, please let me know or just reload." if lang_selection == "English" else "অবশ্যই, কোনো সমস্যা নেই! আপনি যখনই স্ক্রীনিং টেস্টটি করতে প্রস্তুত হবেন, আমাকে জানাবেন অথবা পেজটি রিলোড করবেন।"
+                record_chat("ai", hold_reply)
+                st.rerun()
 
 # SURVEY ENGINE LOOP
 elif 0 <= st.session_state.step < len(quiz_schema):
@@ -255,7 +284,7 @@ elif 0 <= st.session_state.step < len(quiz_schema):
     
     with st.form(key=f"survey_form_{st.session_state.step}"):
         if "options" in active_node:
-            ui_labels = ["Yes", "No"] if lang_selection == "English" else [" can", "na"]
+            ui_labels = ["Yes", "No"] if lang_selection == "English" else ["হ্যাঁ", "না"]
             label_mapper = {"Yes": ui_labels[0], "No": ui_labels[1]}
             if active_node["field"] == "Gender":
                 label_mapper = {"Male": "Male" if lang_selection=="English" else "পুরুষ", "Female": "Female" if lang_selection=="English" else "নারী"}
@@ -272,11 +301,9 @@ elif 0 <= st.session_state.step < len(quiz_schema):
                 record_chat("ai", localized_query); record_chat("user", str(int(typed_age)))
                 reroute_pipeline_to(st.session_state.step + 1)
 
-# FINAL EVALUATION & ENDLESS FOLLOW-UP CHAT
+# FINAL EVALUATION & CHAT
 else:
     telemetry_payload = st.session_state.user_responses
-    
-    # 🌟 ফিক্সড পার্ট: শুধুমাত্র পজিটিভ (Yes) লক্ষণগুলোকে নিয়ে কুয়েরি তৈরি করা হচ্ছে যাতে RAG সহজে ম্যাচ করতে পারে
     positive_symptoms = [k for k, v in telemetry_payload.items() if v == "Yes"]
     symptoms_query_string = ", ".join(positive_symptoms) if positive_symptoms else "routine preventive check"
     
@@ -323,7 +350,7 @@ else:
                 record_chat("ai", doctor_reply)
             st.rerun()
 
-    # পিডিএফ ডাউনলোড
+    # পিডিএফ জেনারেশন
     english_pdf_report = generate_pdf_prescription_insights(symptoms_query_string, matched_literature)
     pdf_binary_stream = build_clinical_pdf(st.session_state.patient_name, telemetry_payload, pdf_verdict_header, formatted_confidence_string, english_pdf_report, matched_literature)
     
