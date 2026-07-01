@@ -200,77 +200,89 @@ with st.sidebar:
     st.markdown("### ⚙️ Settings / সেটিংস")
     lang_selection = st.radio("System Interface Language:", ["English", "বাংলা"], index=0)
 
-# --- 8. 100% DEVICE & SAMSUNG INTERNET COMPATIBLE CSS INJECTION ---
+# --- 8. MIDDLE CENTERED ULTRA-RESPONSIVE BLACK THEME CSS ---
 st.markdown("""
 <style>
-    /* সব ব্রাউজারের ডিফল্ট মার্জিন-প্যাডিং ফোর্স রিসেট */
     * {
         box-sizing: border-box !important;
     }
     
-    /* ইউনিভার্সাল সিস্টেম ফন্ট স্ট্যাক এবং স্থায়ী লাইট ধূসর ব্যাকগ্রাউন্ড */
+    /* ব্যাকগ্রাউন্ড সম্পূর্ণ মিডল ব্ল্যাক এবং টেক্সট সাদা/ধূসর */
     html, body, .stApp { 
         font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif !important;
-        background-color: #f0f2f5 !important; 
-        color: #212529 !important;
+        background-color: #121212 !important; 
+        color: #e0e0e0 !important;
     }
     
+    /* মেইন বক্সকে একদম স্ক্রিনের মাঝখানে এলাইন করা ও সব নেটওয়ার্কে রেডি রাখা */
     .main-wrapper { 
         max-width: 100% !important; 
-        width: 800px !important;
-        margin: 0 auto !important; 
-        padding: 10px !important; 
+        width: 680px !important;
+        margin: 40px auto !important; 
+        padding: 20px !important; 
+        background-color: #1e1e1e !important; /* মাঝখানের বক্সটি ডার্ক ধূসর */
+        border-radius: 16px !important;
+        box-shadow: 0 8px 32px rgba(0,0,0,0.5) !important;
+        border: 1px solid #2d2d2d !important;
     }
     
     .header-logo { 
-        font-size: calc(1.5rem + 1vw) !important;
+        font-size: calc(1.4rem + 0.8vw) !important;
         font-weight: 700 !important; 
-        color: #bd2130 !important; 
-        letter-spacing: -0.5px !important; 
+        color: #ff3b30 !important; /* রেসপন্সিভ ভাইব্রেন্ট রেড */
+        display: block !important;
+        text-align: center !important;
+        margin-bottom: 10px !important;
     }
     
-    /* এআই চ্যাট বাবল - স্থায়ী সলিড ধোঁয়াটে ধূসর টোন (Muted Slate Gray) */
+    /* এআই চ্যাট বাবল - ডার্ক থিম সেফ ধূসর টোন */
     .chat-bubble-ai { 
-        background-color: #e9ecef !important; 
-        color: #212529 !important; 
+        background-color: #2a2a2a !important; 
+        color: #f5f5f5 !important; 
         padding: 14px 16px !important; 
         border-radius: 12px !important; 
-        border-left: 5px solid #bd2130 !important; 
-        margin-bottom: 12px !important; 
+        border-left: 5px solid #ff3b30 !important; 
+        margin-bottom: 15px !important; 
         display: block !important;
         width: 100% !important;
-        box-shadow: 0 2px 5px rgba(0,0,0,0.05) !important; 
         font-size: 15px !important; 
+        line-height: 1.5 !important;
         word-wrap: break-word !important;
     }
     
-    /* ইউজার চ্যাট বাবল - ইউনিভার্সাল ডার্ক রেড */
+    /* ইউজার চ্যাট বাবল - ব্রাইট রেড */
     .chat-bubble-user { 
-        background-color: #bd2130 !important; 
+        background-color: #ff3b30 !important; 
         color: #ffffff !important; 
         padding: 12px 18px !important; 
         border-radius: 12px !important; 
         display: inline-block !important;
         float: right !important; 
         clear: both !important; 
-        margin-bottom: 12px !important; 
+        margin-bottom: 15px !important; 
         font-size: 15px !important; 
         max-width: 85% !important;
         word-wrap: break-word !important;
-        box-shadow: 0 2px 6px rgba(189,33,48,0.15) !important;
+        box-shadow: 0 4px 12px rgba(255,59,48,0.2) !important;
     }
     
-    /* ফর্ম এলিমেন্ট ব্যাকগ্রাউন্ড এবং বর্ডার ফিক্স */
+    /* ইনপুট ফর্ম ও ইন্টারফেস অপ্টিমাইজেশন */
     div[data-testid="stForm"] {
-        background-color: #ffffff !important;
-        border: 1px solid #ced4da !important;
+        background-color: #242424 !important;
+        border: 1px solid #3d3d3d !important;
         border-radius: 12px !important;
-        padding: 15px !important;
+        padding: 20px !important;
+    }
+    
+    /* ফর্ম লেবেল ও ফন্ট কালার ফিক্স */
+    label, p, span {
+        color: #e0e0e0 !important;
     }
 
-    @media (max-width: 640px) {
-        .chat-bubble-user { max-width: 90% !important; padding: 10px 14px !important; }
-        .chat-bubble-ai { padding: 12px 14px !important; }
+    /* মোবাইল স্ক্রিন রেসপন্সিভনেস ট্রিকস */
+    @media (max-width: 768px) {
+        .main-wrapper { margin: 10px auto !important; padding: 12px !important; border-radius: 8px !important; }
+        .chat-bubble-user { max-width: 90% !important; }
     }
 </style>
 """, unsafe_allow_html=True)
@@ -282,7 +294,7 @@ quiz_schema = [
     {"field": "Polyuria", "en": "Do you experience excessive or unusually frequent urination (Polyuria)?", "bn": "আপনার কি অতিরিক্ত বা ঘন ঘন প্রস্রাবের সমস্যা (Polyuria) হচ্ছে?", "options": ["Yes", "No"]},
     {"field": "Polydipsia", "en": "Are you experiencing constant, extreme fluid thirst (Polydipsia)?", "bn": "আপনার কি প্রতিনিয়ত অতিরিক্ত বা অস্বাভাবিক তৃষ্ণা (Polydipsia) পাচ্ছে?", "options": ["Yes", "No"]},
     {"field": "Irritability", "en": "Have you noticed any persistent patterns of sudden irritability or mood spikes?", "bn": "আপনি কি ইদানীং অতিরিক্ত খิตখিটতি মেজাজ বা মানসিক অস্থিরতা অনুভব করছেন?", "options": ["Yes", "No"]},
-    {"field": "Itching", "en": "Do you experience localized or generalized recurring skin itching?", "bn": "আপনার ত্বকে কি ঘন ঘন বা দীর্ঘস্থায়ী চুলকানির সমস্যা হচ্ছে?", "options": ["Yes", "No"]},
+    {"field": "Itching", "en": "Do you experience localized or generalized recurring skin itching?", "bn": "আপনার ত্বকে কি ঘন ঘন বা দীর্ঘস্থায়ী উল্লেখ্য চুলকানি হচ্ছে?", "options": ["Yes", "No"]},
     {"field": "delayed healing", "en": "Do surface cuts, scratches, or flesh wounds take a prolonged time to completely heal?", "bn": "আপনার শরীরের কোনো ক্ষত, কাটা বা স্ক্র্যাচ শুকাতে কি স্বাভাবিকের চেয়ে বেশি সময় লাগছে?", "options": ["Yes", "No"]},
     {"field": "Alopecia", "en": "Are you suffering from active, accelerated hair thinning or loss patches (Alopecia)?", "bn": "আপনার কি অতিরিক্ত চুল পড়া বা নির্দিষ্ট স্থান থেকে চুল উঠে যাওয়ার (Alopecia) লক্ষণ দেখা দিচ্ছে?", "options": ["Yes", "No"]}
 ]
@@ -299,7 +311,7 @@ def reroute_pipeline_to(next_node): st.session_state.step = next_node; st.rerun(
 
 st.markdown('<div class="main-wrapper">', unsafe_allow_html=True)
 st.markdown('<span class="header-logo">🩸 DECat‑AI Desk</span>', unsafe_allow_html=True)
-st.markdown("---")
+st.markdown("<hr style='border: 1px solid #2d2d2d;' />", unsafe_allow_html=True)
 
 # Render previous chat history
 for message_bubble in st.session_state.chat_history:
