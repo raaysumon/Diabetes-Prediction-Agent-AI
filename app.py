@@ -200,150 +200,119 @@ def build_clinical_pdf(patient_name, patient_data, verdict, confidence, english_
     buffer.seek(0)
     return buffer
 
-# --- 7. SIDEBAR LOCALIZATION ---
-with st.sidebar:
-    st.markdown("### ⚙️ Settings / সেটিংস")
-    lang_selection = st.radio("System Interface Language:", ["English", "বাংলা"], index=0)
+# --- 7. PIPELINE STATES ---
+if "lang_selection" not in st.session_state: st.session_state.lang_selection = None
+if "step" not in st.session_state: st.session_state.step = -2
+if "patient_name" not in st.session_state: st.session_state.patient_name = ""
+if "user_responses" not in st.session_state: st.session_state.user_responses = {}
+if "chat_history" not in st.session_state: st.session_state.chat_history = []
+if "final_calculated" not in st.session_state: st.session_state.final_calculated = False
 
-# --- 8. FANCY, FULLY RESPONSIVE DARK METALLIC BLUE CSS ---
+def record_chat(role, payload): st.session_state.chat_history.append({"role": role, "text": payload})
+def reroute_pipeline_to(next_node): st.session_state.step = next_node; st.rerun()
+
+# --- 8. ULTRALUXURY CUSTOM CSS ---
 st.markdown("""
 <style>
-    * {
-        box-sizing: border-box !important;
-    }
+    * { box-sizing: border-box !important; }
+    header[data-testid="stHeader"], div[data-testid="stToolbar"] { display: none !important; }
     
-    /* টপ বার ও মেনু বাটন চিরতরে গায়েব */
-    header[data-testid="stHeader"], div[data-testid="stToolbar"] {
-        background-color: transparent !important;
-        background: transparent !important;
-        height: 0px !important;
-        display: none !important;
-    }
-    
-    /* প্রিমিয়াম লাক্সারি মেটালিক ব্যাকগ্রাউন্ড */
     html, body, .stApp { 
-        font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif !important;
+        font-family: system-ui, -apple-system, BlinkMacSystemFont, sans-serif !important;
         background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%) !important; 
         color: #f1f5f9 !important;
     }
     
-    section[data-testid="stSidebar"] {
-        background-color: #0b0f19 !important;
-    }
-    
-    /* রেসপন্সিভ মেইন র্যাপার বক্স */
     .main-wrapper { 
-        width: 100% !important;
-        max-width: 740px !important;
-        margin: 15px auto !important; 
-        padding: 24px !important; 
-        background: rgba(30, 41, 59, 0.7) !important;
-        backdrop-filter: blur(16px) !important;
-        border-radius: 24px !important; 
-        box-shadow: 0 20px 50px rgba(0, 0, 0, 0.5) !important;
-        border: 1px solid rgba(255, 255, 255, 0.08) !important;
+        width: 100% !important; max-width: 740px !important; margin: 15px auto !important; padding: 24px !important; 
+        background: rgba(30, 41, 59, 0.7) !important; backdrop-filter: blur(16px) !important; border-radius: 24px !important; 
+        box-shadow: 0 20px 50px rgba(0, 0, 0, 0.5) !important; border: 1px solid rgba(255, 255, 255, 0.08) !important;
     }
     
-    /* ফ্যান্সি গ্রেডিয়েন্ট লোগো টেক্সট */
     .header-logo { 
-        font-size: calc(1.6rem + 0.8vw) !important;
-        font-weight: 800 !important; 
-        background: linear-gradient(90deg, #60a5fa, #3b82f6) !important;
-        -webkit-background-clip: text !important;
-        -webkit-text-fill-color: transparent !important;
-        display: block !important;
-        text-align: center !important;
-        margin-bottom: 8px !important;
-        letter-spacing: -0.5px !important;
+        font-size: calc(1.6rem + 0.8vw) !important; font-weight: 800 !important; 
+        background: linear-gradient(90deg, #60a5fa, #3b82f6) !important; -webkit-background-clip: text !important; -webkit-text-fill-color: transparent !important;
+        display: block !important; text-align: center !important; margin-bottom: 8px !important;
     }
     
-    /* এআই চ্যাট বাবল ইন্টেলিজেন্ট প্যাডিং ও রেসপন্সিভ লেআউট */
     .chat-bubble-ai { 
-        background-color: #1e293b !important; 
-        color: #f8fafc !important; 
-        padding: 16px 22px !important; 
-        border-radius: 18px !important; 
-        border-left: 6px solid #2563eb !important; 
-        margin-bottom: 18px !important; 
-        display: block !important;
-        width: 100% !important;
-        font-size: 15px !important; 
-        line-height: 1.6 !important;
-        box-shadow: 0 8px 20px rgba(0, 0, 0, 0.2) !important;
+        background-color: #1e293b !important; color: #f8fafc !important; padding: 16px 22px !important; 
+        border-radius: 18px !important; border-left: 6px solid #2563eb !important; margin-bottom: 18px !important; 
+        display: block !important; width: 100% !important; font-size: 15px !important; line-height: 1.6 !important;
     }
     
-    /* ইউজার চ্যাট বাবল - লাক্সারি ব্লু থিম */
     .chat-bubble-user { 
-        background: linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%) !important;
-        color: #ffffff !important; 
-        padding: 14px 22px !important; 
-        border-radius: 18px !important; 
-        display: inline-block !important;
-        float: right !important; 
-        clear: both !important; 
-        margin-bottom: 18px !important; 
-        font-size: 15px !important; 
-        max-width: 88% !important;
-        word-wrap: break-word !important;
-        box-shadow: 0 8px 25px rgba(37, 99, 235, 0.3) !important;
+        background: linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%) !important; color: #ffffff !important; 
+        padding: 14px 22px !important; border-radius: 18px !important; display: inline-block !important;
+        float: right !important; clear: both !important; margin-bottom: 18px !important; font-size: 15px !important; max-width: 88% !important;
     }
     
-    /* আল্ট্রা মডার্ন ইনপুট ফর্ম বক্স */
     div[data-testid="stForm"] {
-        background-color: #0f172a !important;
-        border: 1px solid rgba(255, 255, 255, 0.05) !important;
-        border-radius: 20px !important;
-        padding: 24px !important;
-        box-shadow: inset 0 4px 12px rgba(0,0,0,0.3) !important;
+        background-color: #0f172a !important; border: 1px solid rgba(255, 255, 255, 0.05) !important; border-radius: 20px !important; padding: 24px !important;
     }
     
     input[type="text"], input[type="number"] {
-        background-color: #1e293b !important;
-        color: #ffffff !important;
-        border: 1px solid #334155 !important;
-        border-radius: 12px !important;
-        padding: 12px !important;
+        background-color: #1e293b !important; color: #ffffff !important; border: 1px solid #334155 !important; border-radius: 12px !important; padding: 12px !important;
     }
     
-    /* ⚡ গ্লোবাল ফ্যান্সি ইউনিভার্সাল ব্লু বাটন স্টাইলিং (রেসপন্সিভ ফুল-উইডথ) */
     div[data-testid="stForm"] button, .stButton button, div[data-testid="stDownloadButton"] button {
-        background: linear-gradient(90deg, #2563eb 0%, #1d4ed8 100%) !important;
-        color: #ffffff !important; 
-        border: none !important;
-        padding: 14px 28px !important;
-        font-size: 15px !important;
-        font-weight: 700 !important;
-        border-radius: 12px !important;
-        box-shadow: 0 6px 20px rgba(37, 99, 235, 0.4) !important;
-        transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1) !important;
-        width: 100% !important; 
-        display: block !important;
-        letter-spacing: 0.3px !important;
+        background: linear-gradient(90deg, #2563eb 0%, #1d4ed8 100%) !important; color: #ffffff !important; border: none !important;
+        padding: 14px 28px !important; font-size: 15px !important; font-weight: 700 !important; border-radius: 12px !important;
+        box-shadow: 0 6px 20px rgba(37, 99, 235, 0.4) !important; transition: all 0.25s ease-in-out !important; width: 100% !important; display: block !important;
     }
     
     div[data-testid="stForm"] button:hover, .stButton button:hover, div[data-testid="stDownloadButton"] button:hover {
-        background: linear-gradient(90deg, #3b82f6 0%, #2563eb 100%) !important;
-        box-shadow: 0 10px 25px rgba(37, 99, 235, 0.5) !important;
-        transform: translateY(-1.5px) !important;
+        background: linear-gradient(90deg, #3b82f6 0%, #2563eb 100%) !important; transform: translateY(-1.5px) !important;
     }
     
-    label, p, span, div[data-baseweb="radio"] {
-        color: #cbd5e1 !important;
+    /* 🔴 ডায়াবেটিস সনাক্ত হলে ডার্ক রেড বক্স এলার্ট */
+    .custom-alert-danger {
+        background-color: #7f1d1d !important; border: 1px solid #b91c1c !important;
+        color: #fef2f2 !important; padding: 16px !important; border-radius: 14px !important;
+        font-weight: 700 !important; font-size: 16px !important; margin-bottom: 20px !important;
+        box-shadow: 0 4px 15px rgba(185, 28, 28, 0.25) !important; display: flex; align-items: center; gap: 10px;
     }
 
-    /* মোবাইল ডিভাইসের জন্য স্পেশাল রেসপন্সিভ মিডিয়া কোয়েরি */
+    /* 🟢 ঝুঁকি না থাকলে ডার্ক গ্রিন বক্স এলার্ট */
+    .custom-alert-success {
+        background-color: #064e3b !important; border: 1px solid #047857 !important;
+        color: #ecfdf5 !important; padding: 16px !important; border-radius: 14px !important;
+        font-weight: 700 !important; font-size: 16px !important; margin-bottom: 20px !important;
+        box-shadow: 0 4px 15px rgba(4, 120, 87, 0.25) !important; display: flex; align-items: center; gap: 10px;
+    }
+
+    label, p, span, div[data-baseweb="radio"] { color: #cbd5e1 !important; }
     @media (max-width: 640px) {
-        .main-wrapper { 
-            margin: 8px auto !important; 
-            padding: 16px !important; 
-            border-radius: 16px !important; 
-        }
-        .chat-bubble-user { max-width: 92% !important; padding: 12px 18px !important; }
-        .chat-bubble-ai { padding: 14px 18px !important; }
-        div[data-testid="stForm"] { padding: 16px !important; }
+        .main-wrapper { margin: 8px auto !important; padding: 16px !important; border-radius: 16px !important; }
+        .chat-bubble-user { max-width: 92% !important; }
     }
 </style>
 """, unsafe_allow_html=True)
+
+st.markdown('<div class="main-wrapper">', unsafe_allow_html=True)
+st.markdown('<span class="header-logo">🧬 DECat‑AI Clinical Desk</span>', unsafe_allow_html=True)
+st.markdown("<hr style='border: 1px solid rgba(255,255,255,0.06);' />", unsafe_allow_html=True)
+
+# ================= STEP 0: LANGUAGE SELECTION BOX FIRST =================
+if st.session_state.lang_selection is None:
+    st.markdown('<div class="chat-bubble-ai">🌐 <b>System Notification:</b> Please select your preferred communication language to initialize the system.<br>অনুগ্রহ করে সিস্টেমটি শুরু করতে আপনার পছন্দের ভাষা নির্বাচন করুন।</div>', unsafe_allow_html=True)
+    with st.form(key="lang_init_form"):
+        chosen_lang = st.radio("Select Language / ভাষা নির্বাচন করুন:", ["English", "বাংলা"], index=None)
+        if st.form_submit_button("Confirm & Initialize 🌐") and chosen_lang:
+            st.session_state.lang_selection = chosen_lang
+            st.rerun()
+    st.markdown('</div>', unsafe_allow_html=True)
+    st.stop()
+
+# Assign short-key handle
+lang = st.session_state.lang_selection
+
+# Render previous chat history
+for message_bubble in st.session_state.chat_history:
+    if message_bubble["role"] == "ai":
+        st.markdown(f'<div class="chat-bubble-ai">🤖 <b>DECat-AI:</b> {message_bubble["text"]}</div>', unsafe_allow_html=True)
+    else:
+        st.markdown(f'<div style="overflow:auto;"><div class="chat-bubble-user">👤 {message_bubble["text"]}</div></div>', unsafe_allow_html=True)
 
 # --- 9. CLINICAL QUIZ SCHEMA ---
 quiz_schema = [
@@ -357,30 +326,9 @@ quiz_schema = [
     {"field": "Alopecia", "en": "Are you suffering from active, accelerated hair thinning or loss patches (Alopecia)?", "bn": "আপনার কি অতিরিক্ত চুল পড়া বা নির্দিষ্ট স্থান থেকে চুল উঠে যাওয়ার (Alopecia) লক্ষণ দেখা দিচ্ছে?", "options": ["Yes", "No"]}
 ]
 
-# --- 10. PIPELINE INITIALIZATION ---
-if "step" not in st.session_state: st.session_state.step = -2
-if "patient_name" not in st.session_state: st.session_state.patient_name = ""
-if "user_responses" not in st.session_state: st.session_state.user_responses = {}
-if "chat_history" not in st.session_state: st.session_state.chat_history = []
-if "final_calculated" not in st.session_state: st.session_state.final_calculated = False
-
-def record_chat(role, payload): st.session_state.chat_history.append({"role": role, "text": payload})
-def reroute_pipeline_to(next_node): st.session_state.step = next_node; st.rerun()
-
-st.markdown('<div class="main-wrapper">', unsafe_allow_html=True)
-st.markdown('<span class="header-logo">🧬 DECat‑AI Clinical Desk</span>', unsafe_allow_html=True)
-st.markdown("<hr style='border: 1px solid rgba(255,255,255,0.06);' />", unsafe_allow_html=True)
-
-# Render previous chat history
-for message_bubble in st.session_state.chat_history:
-    if message_bubble["role"] == "ai":
-        st.markdown(f'<div class="chat-bubble-ai">🤖 <b>DECat-AI:</b> {message_bubble["text"]}</div>', unsafe_allow_html=True)
-    else:
-        st.markdown(f'<div style="overflow:auto;"><div class="chat-bubble-user">👤 {message_bubble["text"]}</div></div>', unsafe_allow_html=True)
-
 # STEP -2: IDENTITY
 if st.session_state.step == -2:
-    init_greeting = "Hello! Before we talk about your health, could you please tell me your full name?" if lang_selection == "English" else "হ্যালো! আপনার স্বাস্থ্য নিয়ে কথা বলার আগে, আমি কি আপনার সম্পূর্ণ নামটা জানতে পারি?"
+    init_greeting = "Hello! Before we talk about your health, could you please tell me your full name?" if lang == "English" else "হ্যালো! আপনার স্বাস্থ্য নিয়ে কথা বলার আগে, আমি কি আপনার সম্পূর্ণ নামটা জানতে পারি?"
     st.markdown(f'<div class="chat-bubble-ai">🤖 <b>DECat-AI:</b> {init_greeting}</div>', unsafe_allow_html=True)
     with st.form(key="identity_node"):
         raw_name = st.text_input("Your Name / আপনার নাম")
@@ -391,7 +339,7 @@ if st.session_state.step == -2:
 
 # STEP -1: COMPLIANCE WITH INTENT PROTECTION
 elif st.session_state.step == -1:
-    consent_prompt = f"Nice to meet you, {st.session_state.patient_name}. Would you like to check your diabetes risks with a quick screening test?" if lang_selection == "English" else f"আপনার সাথে পরিচিত হয়ে ভালো লাগলো, {st.session_state.patient_name}। আপনি কি ছোট একটা স্ক্রীনিং টেস্ট করতে চান?"
+    consent_prompt = f"Nice to meet you, {st.session_state.patient_name}. Would you like to check your diabetes risks with a quick screening test?" if lang == "English" else f"আপনার সাথে পরিচিত হয়ে ভালো লাগলো, {st.session_state.patient_name}। আপনি কি ছোট একটা স্ক্রীনিং টেস্ট করতে চান?"
     st.markdown(f'<div class="chat-bubble-ai">🤖 <b>DECat-AI:</b> {consent_prompt}</div>', unsafe_allow_html=True)
     with st.form(key="consent_node", clear_on_submit=True):
         consent_reply = st.text_input("Your Response / উত্তর দিন")
@@ -403,29 +351,29 @@ elif st.session_state.step == -1:
                 reroute_pipeline_to(0)
             else:
                 record_chat("ai", consent_prompt); record_chat("user", consent_reply.strip())
-                hold_reply = "Sure, no problem! Whenever you are ready to take the screening test, please let me know or just reload." if lang_selection == "English" else "অবশ্যই, কোনো সমস্যা নেই! আপনি যখনই স্ক্রীনিং টেস্টটি করতে প্রস্তুত হবেন, আমাকে জানাবেন অথবা পেজটি রিলোড করবেন।"
+                hold_reply = "Sure, no problem! Whenever you are ready to take the screening test, please let me know or just reload." if lang == "English" else "অবশ্যই, কোনো সমস্যা নেই! আপনি যখনই স্ক্রীনিং টেস্টটি করতে প্রস্তুত হবেন, আমাকে জানাবেন অথবা পেজটি রিলোড করবেন।"
                 record_chat("ai", hold_reply)
                 reroute_pipeline_to(-3)
 
 # STEP -3: HOLD STATE
 elif st.session_state.step == -3:
     st.write(" ")
-    btn_label = "Start Screening Test Now 🚀" if lang_selection == "English" else "এখনই স্ক্রীনিং টেস্ট শুরু করুন 🚀"
+    btn_label = "Start Screening Test Now 🚀" if lang == "English" else "এখনই স্ক্রীনিং টেস্ট শুরু করুন 🚀"
     if st.button(btn_label):
         reroute_pipeline_to(0)
 
 # SURVEY ENGINE LOOP
 elif 0 <= st.session_state.step < len(quiz_schema):
     active_node = quiz_schema[st.session_state.step]
-    localized_query = active_node["bn"] if lang_selection == "বাংলা" else active_node["en"]
+    localized_query = active_node["bn"] if lang == "বাংলা" else active_node["en"]
     st.markdown(f'<div class="chat-bubble-ai">🤖 <b>DECat-AI:</b> {localized_query}</div>', unsafe_allow_html=True)
     
     with st.form(key=f"survey_form_{st.session_state.step}"):
         if "options" in active_node:
-            ui_labels = ["Yes", "No"] if lang_selection == "English" else ["হ্যাঁ", "না"]
+            ui_labels = ["Yes", "No"] if lang == "English" else ["হ্যাঁ", "na"] # Normalize keys
             label_mapper = {"Yes": ui_labels[0], "No": ui_labels[1]}
             if active_node["field"] == "Gender":
-                label_mapper = {"Male": "Male" if lang_selection=="English" else "পুরুষ", "Female": "Female" if lang_selection=="English" else "নারী"}
+                label_mapper = {"Male": "Male" if lang=="English" else "পুরুষ", "Female": "Female" if lang=="English" else "নারী"}
             inverted_mapper = {v: k for k, v in label_mapper.items()}
             selected_option = st.radio("Select:", list(label_mapper.values()), index=None)
             if st.form_submit_button("Next ➡️") and selected_option:
@@ -458,21 +406,23 @@ else:
     formatted_confidence_string = f"{calculated_confidence:.2f} percent"
     
     pdf_verdict_header = "DIABETES RISK DETECTED" if has_positive_risk else "NO IMMEDIATE RISK DETECTED"
-    verdict_header = pdf_verdict_header if lang_selection == "English" else ("ডায়াবেটিস ঝুঁকি সনাক্ত হয়েছে" if has_positive_risk else "কোনো তাৎক্ষণিক ঝুঁকি পাওয়া যায়নি")
+    verdict_header = pdf_verdict_header if lang == "English" else ("ডায়াবেটিস ঝুঁকি সনাক্ত হয়েছে" if has_positive_risk else "কোনো তাৎক্ষণিক ঝুঁকি পাওয়া যায়নি")
 
     if not st.session_state.final_calculated:
         rag_assessment_report = generate_rag_clinical_assessment(
-            st.session_state.patient_name, verdict_header, formatted_confidence_string, symptoms_query_string, lang_selection, matched_literature
+            st.session_state.patient_name, verdict_header, formatted_confidence_string, symptoms_query_string, lang, matched_literature
         )
         record_chat("ai", f"**{verdict_header}** ({formatted_confidence_string})\n\n{rag_assessment_report}")
         st.session_state.final_calculated = True
         st.rerun()
 
     st.write("### 📊 Clinical Screening Diagnostic Center")
+    
+    # 🔴/🟢 কাস্টম কালারড বক্স অ্যালার্ট লজিক প্রয়োগ
     if has_positive_risk:
-        st.error(f"⚠️ {verdict_header} ({formatted_confidence_string})")
+        st.markdown(f'<div class="custom-alert-danger">⚠️ {verdict_header} ({formatted_confidence_string})</div>', unsafe_allow_html=True)
     else:
-        st.success(f"✅ {verdict_header} ({formatted_confidence_string})")
+        st.markdown(f'<div class="custom-alert-success">✅ {verdict_header} ({formatted_confidence_string})</div>', unsafe_allow_html=True)
 
     # Follow-up Chat Box
     st.markdown("#### 💬 Ask DECat-AI Doctor Anything (Follow-up Chat)")
@@ -484,7 +434,7 @@ else:
             record_chat("user", patient_question.strip())
             with st.spinner("Doctor is analyzing..."):
                 doctor_reply = generate_followup_answer(
-                    patient_question.strip(), lang_selection, symptoms_query_string, pdf_verdict_header, formatted_confidence_string, matched_literature
+                    patient_question.strip(), lang, symptoms_query_string, pdf_verdict_header, formatted_confidence_string, matched_literature
                 )
                 record_chat("ai", doctor_reply)
             st.rerun()
@@ -494,9 +444,8 @@ else:
     pdf_binary_stream = build_clinical_pdf(st.session_state.patient_name, telemetry_payload, pdf_verdict_header, formatted_confidence_string, english_pdf_report, matched_literature)
     
     st.write(" ")
-    
     st.download_button(
-        label="📥 Download Traceable Clinical Report (PDF)" if lang_selection == "English" else "📥 ক্লিনিক্যাল রিপোর্ট ডাউনলোড করুন (PDF)",
+        label="📥 Download Traceable Clinical Report (PDF)" if lang == "English" else "📥 ক্লিনিক্যাল রিপোর্ট ডাউনলোড করুন (PDF)",
         data=pdf_binary_stream, file_name=f"Clinical_Report_{st.session_state.patient_name}.pdf", mime="application/pdf"
     )
     
