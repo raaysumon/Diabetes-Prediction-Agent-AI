@@ -57,27 +57,25 @@ def load_clinical_knowledge_base():
         }
     ]
 
-# --- 🌟 OMNI-INTENT CONVERSATIONAL LAYER (শুরু থেকেই ইউজারের সব কথা বোঝার ইঞ্জিন) ---
-def process_early_conversation(user_text, language, patient_name):
+# --- INTENT CLASSIFIER ENGINE (ইউজারের অসম্মতি বা 'পরে করব' ট্র্যাক করার জন্য) ---
+def check_user_consent_intent(user_text):
     try:
         client = Groq(api_key=GROQ_API_KEY)
         system_prompt = (
-            f"You are DECat-AI, a smart and friendly digital medical assistant. The patient's name is {patient_name}.\n"
-            f"Understand the user's input and reply naturally in {language}.\n"
-            f"CRITICAL RULE: You must analyze if the user wants to start the diabetes screening test now. "
-            f"At the very end of your response, you MUST append a hidden tag: either '[INTENT:START]' if they are ready/agreeing to start the test (e.g., 'start', 'test koro', 'okay', 'bndhu suru koro', 'ঠিক আছে'), "
-            f"or '[INTENT:CONVERSE]' if they are just chatting, asking how you are, asking your name, or saying they will do it later."
+            "Analyze the user's intent to start a medical screening right now. "
+            "If they say yes, okay, start, sure, or show positive intent, reply ONLY with 'START'. "
+            "If they say next day, later, no, not now, how are you, or deflect, reply ONLY with 'HOLD'."
         )
         completion = client.chat.completions.create(
             model="llama-3.1-8b-instant",
             messages=[{"role": "system", "content": system_prompt}, {"role": "user", "content": user_text}],
-            temperature=0.3, max_tokens=200
+            temperature=0.01, max_tokens=5
         )
         return completion.choices[0].message.content.strip()
-    except Exception as e:
-        return f"I'm here to help! Let me know when you want to start the test. [INTENT:CONVERSE]"
+    except Exception:
+        return "START" # ফলব্যাক হিসেবে চালু রাখা হলো
 
-# --- 4. DYNAMIC AUTOMATED RAG ENGINE ---
+# --- 4. DYNAMIC AUTOMATED RAG ENGINE WITH CITATIONS ---
 def real_rag_retrieval(patient_symptoms_string, similarity_threshold=0.01):
     corpus = load_clinical_knowledge_base()
     documents = [f"{doc['text']} {doc['keywords']}" for doc in corpus]
@@ -105,7 +103,7 @@ def generate_rag_clinical_assessment(patient_name, prediction_label, confidence,
             f"You are DECat-AI, a helpful digital clinician specializing in Diabetes Risk Screening. {lang_rule}\n"
             f"Explain the diagnostic risk dynamically based on CatBoost: {prediction_label} ({confidence}).\n"
             f"Advise tests and structure cleanly using header fields: 'Diagnostic Guidance', 'Dietary Action Plan', and 'Lifestyle Protocol'.\n"
-            f"Always append the clinical citation names inline at the end of relevant paragraphs, e.g., (Source: WHO 2023)."
+            f"CRITICAL: Always append the clinical citation names inline at the end of relevant paragraphs, e.g., (Source: WHO 2023)."
         )
         completion = client.chat.completions.create(
             model="llama-3.1-8b-instant",
@@ -258,28 +256,25 @@ if st.session_state.step == -2:
             record_chat("ai", init_greeting); record_chat("user", raw_name.strip())
             reroute_pipeline_to(-1)
 
-# STEP -1: OMNI-INTENT FREE CHAT & GATEWAY (ইউজারের সব কথা বোঝার প্রধান অংশ)
+# STEP -1: COMPLIANCE WITH INTENT PROTECTION (FIXED)
 elif st.session_state.step == -1:
-    with st.form(key="consent_free_chat_node"):
-        consent_reply = st.text_input("Message DECat-AI / কথা বলুন বা টেস্ট শুরু করতে বলুন:")
-        submit_btn = st.form_submit_button("Send 🚀")
-        
-        if submit_btn and consent_reply.strip():
-            record_chat("user", consent_reply.strip())
-            with st.spinner("Thinking..."):
-                # LLM দিয়ে উত্তর জেনারেট এবং ইনটেন্ট ক্লাসিফাই করা হচ্ছে
-                raw_ai_response = process_early_conversation(consent_reply.strip(), lang_selection, st.session_state.patient_name)
-                
-                # ইনটেন্ট ট্যাগ আলাদা করা হচ্ছে
-                if "[INTENT:START]" in raw_ai_response:
-                    clean_ai_response = raw_ai_response.replace("[INTENT:START]", "").strip()
-                    record_chat("ai", clean_ai_response)
-                    # সরাসরি টেস্টের প্রথম প্রশ্ন (Age)-এ নিয়ে যাবে
-                    reroute_pipeline_to(0)
-                else:
-                    clean_ai_response = raw_ai_response.replace("[INTENT:CONVERSE]", "").strip()
-                    record_chat("ai", clean_ai_response)
-                    st.rerun()
+    consent_prompt = f"Nice to meet you, {st.session_state.patient_name}. Would you like to check your diabetes risks with a quick screening test?" if lang_selection == "English" else f"আপনার সাথে পরিচিত হয়ে ভালো লাগলো, {st.session_state.patient_name}। আপনি কি ছোট একটা স্ক্রীনিং টেস্ট করতে চান?"
+    st.markdown(f'<div class="chat-bubble-ai">🤖 <b>DECat-AI:</b> {consent_prompt}</div>', unsafe_allow_html=True)
+    with st.form(key="consent_node"):
+        consent_reply = st.text_input("Your Response / উত্তর দিন")
+        if st.form_submit_button("Submit 🚀") and consent_reply.strip():
+            # ইন্টেন্ট এনালাইসিস চালানো হচ্ছে
+            intent_result = check_user_consent_intent(consent_reply.strip())
+            
+            if intent_result == "START":
+                record_chat("ai", consent_prompt); record_chat("user", consent_reply.strip())
+                reroute_pipeline_to(0)
+            else:
+                # ইউজার পরে করতে চাইলে বা অন্য কথা বললে তাকে এখানেই হোল্ড করা হবে
+                record_chat("ai", consent_prompt); record_chat("user", consent_reply.strip())
+                hold_reply = "Sure, no problem! Whenever you are ready to take the screening test, please let me know or just reload." if lang_selection == "English" else "অবশ্যই, কোনো সমস্যা নেই! আপনি যখনই স্ক্রীনিং টেস্টটি করতে প্রস্তুত হবেন, আমাকে জানাবেন অথবা পেজটি রিলোড করবেন।"
+                record_chat("ai", hold_reply)
+                st.rerun()
 
 # SURVEY ENGINE LOOP
 elif 0 <= st.session_state.step < len(quiz_schema):
