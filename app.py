@@ -19,10 +19,13 @@ st.set_page_config(
     initial_sidebar_state="collapsed"
 )
 
-# --- API Key (use st.secrets in production) ---
+# --- API Key (Strictly using st.secrets for production security) ---
 GROQ_API_KEY = st.secrets.get("GROQ_API_KEY", "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")
 
-# --- 📚 RAG Knowledge Base Setup with References ---
+if not GROQ_API_KEY:
+    st.error("❌ Groq API Key missing! Please set 'GROQ_API_KEY' in your Streamlit Secrets.")
+
+# --- 📚 Knowledge Base Setup ---
 @st.cache_resource
 def setup_rag_knowledge_base():
     """Returns a list of guideline dicts with text and source."""
@@ -55,11 +58,10 @@ guidelines_texts = [item["text"] for item in guidelines_data]
 guidelines_sources = [item["source"] for item in guidelines_data]
 
 def get_rag_agent_response(patient_context, language):
-    """Returns (agent_report, sources_list). language is either 'English' or 'বাংলা'."""
+    """Returns (agent_report, sources_list)."""
     context_source = "\n".join(guidelines_texts)
     try:
         client = Groq(api_key=GROQ_API_KEY)
-        # --- STRONG LANGUAGE INSTRUCTION ---
         lang_instruction = (
             f"CRITICAL: Your entire response MUST be written strictly in {language}. "
             f"Do NOT use any other language. If {language} is 'English', respond only in English. "
@@ -68,11 +70,11 @@ def get_rag_agent_response(patient_context, language):
         system_content = (
             f"You are an expert Medical AI Agent acting as a supportive AI Doctor named DECat-AI. "
             f"{lang_instruction} "
-            f"Analyze the patient strictly based on the provided Clinical Guidelines. "
+            f"CRITICAL SAFETY RULE: Analyze the patient STRICTLY based ONLY on the provided Clinical Guidelines Reference. "
+            f"Do NOT use outside medical knowledge. If the guidelines don't cover a point, do not invent facts. "
             f"Format your response as a beautiful, professional, and clear clinical report. Use clear headers like 'Diagnostic Advice', "
-            f"'Dietary Modifications', and 'Lifestyle Protocol' (translate these headers properly if the language is Bengali, e.g., 'ডায়াগনস্টিক পরামর্শ', 'খাদ্যতালিকাগত পরিবর্তন', 'জীবনধারা প্রোটোকল'). "
-            f"STRICT RULE: Never use mathematical symbols like greater than, less than, percentage signs, dollar signs, or brackets. "
-            f"Write them in plain text words if necessary (e.g., in English write 'greater than 6.5 percent', or in Bengali write '৬.৫ শতাংশের বেশি')."
+            f"'Dietary Modifications', and 'Lifestyle Protocol' (properly translated if Bengali). "
+            f"STRICT RULE: Never use mathematical symbols like >, <, %, $, or brackets. Write them in plain text words (e.g., 'greater than 6.5 percent')."
         )
         completion = client.chat.completions.create(
             model="llama-3.1-8b-instant",
@@ -80,24 +82,12 @@ def get_rag_agent_response(patient_context, language):
                 {"role": "system", "content": system_content},
                 {"role": "user", "content": f"Clinical Guidelines Reference:\n{context_source}\n\nPatient Case Profile:\n{patient_context}"}
             ],
-            temperature=0.2,
+            temperature=0.1,  # Lower temperature for clinical safety
             max_tokens=600,
         )
         return completion.choices[0].message.content, guidelines_sources
     except Exception as e:
-        error_str = str(e)
-        if "429" in error_str or "rate_limit" in error_str.lower():
-            import re
-            match = re.search(r"try again in (\d+)m(\d+\.?\d*)s", error_str)
-            if match:
-                minutes = int(match.group(1))
-                seconds = float(match.group(2))
-                wait_msg = f"⚠️ **Rate limit exceeded.** Please wait **{minutes} minute{'s' if minutes!=1 else ''} and {int(seconds)} second{'s' if int(seconds)!=1 else ''}** before trying again. You may also upgrade your Groq plan for higher limits."
-            else:
-                wait_msg = "⚠️ **Rate limit exceeded.** Please wait a few minutes and try again, or upgrade your Groq plan."
-            return wait_msg, guidelines_sources
-        else:
-            return f"Error generating Agent insights: {e}", guidelines_sources
+        return f"Error generating Agent insights: {e}", guidelines_sources
 
 def get_english_prescription_insights(patient_context):
     """Always returns English concise recommendations for PDF."""
@@ -105,11 +95,9 @@ def get_english_prescription_insights(patient_context):
     try:
         client = Groq(api_key=GROQ_API_KEY)
         system_content = (
-            "You are an expert Medical AI Agent. Generate a highly concise, professional, point-by-point recommendation plan in English. "
-            "Format the output strictly as a clean, structured bulleted list with these exact section headers: "
-            "'DIAGNOSTIC ADVICE:', 'DIETARY MODIFICATIONS:', and 'LIFESTYLE PROTOCOL:'. "
-            "Keep each point short, precise, and practical. Do not use formatting markdown symbols like asterisks or hashtags. "
-            "STRICT RULE: Never use mathematical symbols like greater than, less than, percentage signs, dollar signs, or brackets. Write them as plain words (e.g., 'percent', 'greater than')."
+            "You are an expert Medical AI Agent. Generate a highly concise recommendation plan in English based ONLY on the provided guidelines. "
+            "Format strictly as a clean bulleted list with exact headers: 'DIAGNOSTIC ADVICE:', 'DIETARY MODIFICATIONS:', and 'LIFESTYLE PROTOCOL:'. "
+            "Do not use markdown like asterisks or hashtags. Never use symbols like >, <, %, $. Write them as plain words."
         )
         completion = client.chat.completions.create(
             model="llama-3.1-8b-instant",
@@ -121,18 +109,14 @@ def get_english_prescription_insights(patient_context):
             max_tokens=300,
         )
         return completion.choices[0].message.content
-    except Exception as e:
-        error_str = str(e)
-        if "429" in error_str or "rate_limit" in error_str.lower():
-            return "⚠️ Rate limit reached. Please wait and try again later. (Recommendation generation skipped)"
-        else:
-            return "DIAGNOSTIC ADVICE:\n- Order HbA1c and Fasting Blood Sugar tests.\nDIETARY MODIFICATIONS:\n- Restrict daily carbohydrates intake.\nLIFESTYLE PROTOCOL:\n- Engage in 150 minutes of moderate exercise weekly."
+    except Exception:
+        return "DIAGNOSTIC ADVICE:\n- Order HbA1c and Fasting Blood Sugar tests.\nDIETARY MODIFICATIONS:\n- Restrict daily carbohydrates intake.\nLIFESTYLE PROTOCOL:\n- Engage in 150 minutes of moderate exercise weekly."
 
 # --- CatBoost Model Loading ---
 @st.cache_resource
 def load_model():
     model = CatBoostClassifier()
-    current_dir = os.path.dirname(__file__)
+    current_dir = os.path.dirname(__file__) if '__file__' in locals() else os.getcwd()
     model_path = os.path.join(current_dir, "final_catboost_modol.cbm")
     try:
         if os.path.exists(model_path):
@@ -144,7 +128,7 @@ def load_model():
 
 model = load_model()
 
-# --- 📄 PDF Recommendation with References ---
+# --- 📄 PDF Recommendation ---
 def generate_prescription_pdf(patient_name, patient_data, result_text, confidence, english_agent_report, sources_list):
     buffer = io.BytesIO()
     doc = SimpleDocTemplate(buffer, pagesize=letter, rightMargin=40, leftMargin=40, topMargin=40, bottomMargin=40)
@@ -194,6 +178,7 @@ def generate_prescription_pdf(patient_name, patient_data, result_text, confidenc
     story.append(t)
     story.append(Spacer(1, 15))
     story.append(Paragraph(section2_text, section_style))
+    
     pdf_verdict = "DIABETES RISK DETECTED" if ("DETECTED" in result_text or "সনাক্ত" in result_text) else "NO IMMEDIATE RISK DETECTED"
     verdict_color = '#dc3545' if "DETECTED" in pdf_verdict else '#28a745'
     verdict_html = f"<font color='{verdict_color}'><b>{pdf_verdict}</b></font>"
@@ -211,7 +196,6 @@ def generate_prescription_pdf(patient_name, patient_data, result_text, confidenc
             story.append(Paragraph(para.strip(), body_style))
             story.append(Spacer(1, 4))
     
-    # --- References Section ---
     story.append(Spacer(1, 20))
     story.append(Paragraph(section4_text, section_style))
     for idx, src in enumerate(sources_list, 1):
@@ -226,297 +210,26 @@ def generate_prescription_pdf(patient_name, patient_data, result_text, confidenc
     buffer.seek(0)
     return buffer
 
-# --- 🎨 Enhanced CSS with Animations ---
+# --- 🎨 Custom CSS Injection ---
 st.markdown("""
 <style>
-    @import url('https://fonts.googleapis.com/css2?family=Inter:ital,wght@0,300;0,400;0,600;0,700;1,400&display=swap');
-
-    html, body, .stApp {
-        font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
-        background: linear-gradient(145deg, #f8faff 0%, #eef4fa 100%);
-        min-height: 100vh;
-    }
-
-    @keyframes fadeInUp {
-        0% { opacity: 0; transform: translateY(20px); }
-        100% { opacity: 1; transform: translateY(0); }
-    }
-    @keyframes pulseGlow {
-        0% { box-shadow: 0 0 0 0 rgba(220, 53, 69, 0.4); }
-        70% { box-shadow: 0 0 0 12px rgba(220, 53, 69, 0); }
-        100% { box-shadow: 0 0 0 0 rgba(220, 53, 69, 0); }
-    }
-    @keyframes slideInLeft {
-        0% { opacity: 0; transform: translateX(-20px); }
-        100% { opacity: 1; transform: translateX(0); }
-    }
-    @keyframes slideInRight {
-        0% { opacity: 0; transform: translateX(20px); }
-        100% { opacity: 1; transform: translateX(0); }
-    }
-
-    .fade-in { animation: fadeInUp 0.5s ease-out forwards; }
-    .slide-left { animation: slideInLeft 0.4s ease-out forwards; }
-    .slide-right { animation: slideInRight 0.4s ease-out forwards; }
-    .pulse-glow { animation: pulseGlow 2s infinite; }
-
-    .main-container {
-        max-width: 800px;
-        margin: 0 auto;
-        padding: 1rem;
-    }
-
-    .app-title {
-        font-size: 2.2rem;
-        font-weight: 700;
-        background: linear-gradient(135deg, #0b3954, #1e6f9f);
-        -webkit-background-clip: text;
-        -webkit-text-fill-color: transparent;
-        display: inline-block;
-        letter-spacing: -0.5px;
-        margin-bottom: 0.2rem;
-    }
-    .app-subtitle {
-        font-size: 1rem;
-        color: #2c3e50;
-        opacity: 0.8;
-        font-weight: 400;
-    }
-
-    .chat-bubble-ai {
-        background: #ffffff;
-        padding: 14px 20px;
-        border-radius: 18px 18px 18px 4px;
-        border-left: 5px solid #dc3545;
-        box-shadow: 0 4px 12px rgba(0,0,0,0.04);
-        margin-bottom: 16px;
-        font-size: calc(15px + 0.1vw);
-        line-height: 1.6;
-        max-width: 100%;
-        transition: all 0.2s ease;
-        animation: fadeInUp 0.4s ease-out;
-    }
-    .chat-bubble-ai:hover {
-        box-shadow: 0 6px 18px rgba(0,0,0,0.08);
-    }
-
-    .chat-bubble-user {
-        background: linear-gradient(135deg, #dc3545, #c82333);
-        color: white;
-        padding: 12px 18px;
-        border-radius: 18px 18px 4px 18px;
-        text-align: left;
-        margin-bottom: 16px;
-        display: inline-block;
-        float: right;
-        clear: both;
-        font-size: calc(15px + 0.1vw);
-        max-width: 85%;
-        box-shadow: 0 4px 12px rgba(220, 53, 69, 0.25);
-        animation: slideInRight 0.4s ease-out;
-        transition: all 0.2s ease;
-    }
-
-    .stForm {
-        background: rgba(255,255,255,0.7);
-        backdrop-filter: blur(10px);
-        padding: 1.5rem !important;
-        border-radius: 24px !important;
-        box-shadow: 0 8px 24px rgba(0,0,0,0.04);
-        border: 1px solid rgba(255,255,255,0.5);
-        transition: all 0.3s ease;
-    }
-    .stForm:hover {
-        box-shadow: 0 12px 36px rgba(0,0,0,0.06);
-    }
-
-    .stButton > button {
-        background: linear-gradient(135deg, #1e6f9f, #0b3954);
-        color: white;
-        border: none;
-        border-radius: 50px;
-        padding: 0.6rem 2rem;
-        font-weight: 600;
-        font-size: 1rem;
-        transition: all 0.25s ease;
-        box-shadow: 0 4px 12px rgba(27, 94, 140, 0.3);
-        width: 100%;
-    }
-    .stButton > button:hover {
-        transform: translateY(-2px);
-        box-shadow: 0 8px 20px rgba(27, 94, 140, 0.4);
-        background: linear-gradient(135deg, #1a5f85, #082b3f);
-    }
-    .stButton > button:active {
-        transform: scale(0.97);
-    }
-
-    .stRadio > div {
-        display: flex;
-        flex-wrap: wrap;
-        gap: 0.75rem;
-        justify-content: center;
-    }
-    .stRadio label {
-        background: #f0f4f9;
-        padding: 0.6rem 1.2rem;
-        border-radius: 40px;
-        font-weight: 500;
-        color: #1e2a3a;
-        transition: all 0.2s ease;
-        border: 2px solid transparent;
-        cursor: pointer;
-        box-shadow: 0 2px 8px rgba(0,0,0,0.02);
-    }
-    .stRadio label:hover {
-        background: #e2eaf2;
-        border-color: #b0c4d9;
-    }
-    .stRadio [data-testid="stRadio"] > label[data-selected="true"] {
-        background: linear-gradient(135deg, #1e6f9f, #0b3954);
-        color: white;
-        border-color: #0b3954;
-        box-shadow: 0 4px 14px rgba(27, 94, 140, 0.35);
-    }
-
-    .stNumberInput input {
-        border-radius: 30px !important;
-        border: 2px solid #dce5ed !important;
-        padding: 0.6rem 1rem !important;
-        font-size: 1rem !important;
-        transition: border-color 0.3s ease;
-    }
-    .stNumberInput input:focus {
-        border-color: #1e6f9f !important;
-        box-shadow: 0 0 0 3px rgba(30, 111, 159, 0.2);
-    }
-
-    .css-1d391kg {
-        background: #ffffffd9;
-        backdrop-filter: blur(12px);
-        border-right: 1px solid rgba(0,0,0,0.05);
-    }
-    .sidebar-content {
-        padding: 1rem 0.5rem;
-    }
-
-    .stProgress > div > div {
-        background: linear-gradient(90deg, #0b3954, #1e6f9f) !important;
-        border-radius: 30px;
-    }
-
-    .metric-card {
-        background: white;
-        border-radius: 20px;
-        padding: 1rem 1.2rem;
-        box-shadow: 0 6px 18px rgba(0,0,0,0.03);
-        transition: all 0.3s ease;
-        border: 1px solid rgba(0,0,0,0.02);
-    }
-    .metric-card:hover {
-        transform: translateY(-3px);
-        box-shadow: 0 12px 28px rgba(0,0,0,0.06);
-    }
-
-    .report-box {
-        background: white;
-        padding: 1.8rem;
-        border-radius: 24px;
-        border-left: 6px solid #1e6f9f;
-        box-shadow: 0 8px 24px rgba(0,0,0,0.03);
-        font-size: 0.95rem;
-        line-height: 1.7;
-        animation: fadeInUp 0.6s ease-out;
-    }
-
-    .ref-box {
-        background: #f8faff;
-        padding: 1.2rem 1.5rem;
-        border-radius: 16px;
-        border-left: 4px solid #6c757d;
-        margin-top: 1.5rem;
-        font-size: 0.9rem;
-        line-height: 1.6;
-        animation: fadeInUp 0.6s ease-out;
-    }
-    .ref-box li {
-        list-style-type: decimal;
-        margin-left: 1.5rem;
-        color: #2c3e50;
-    }
-    .ref-box a {
-        color: #1e6f9f;
-        text-decoration: none;
-    }
-
-    .warning-box {
-        background: #fff9e6;
-        color: #8a6d3b;
-        padding: 1rem 1.5rem;
-        border-radius: 16px;
-        border-left: 6px solid #ffc107;
-        font-weight: 600;
-        box-shadow: 0 4px 12px rgba(255, 193, 7, 0.15);
-        animation: pulseGlow 2.5s infinite;
-    }
-
-    .rag-source {
-        background: #f0f3f8;
-        padding: 0.8rem 1.2rem;
-        border-radius: 12px;
-        font-size: 0.8rem;
-        font-family: 'Courier New', monospace;
-        color: #2c3e50;
-        border: 1px solid #dce5ed;
-        overflow-x: auto;
-    }
-
-    .stDownloadButton button {
-        background: linear-gradient(135deg, #28a745, #1e7e34) !important;
-        box-shadow: 0 4px 14px rgba(40, 167, 69, 0.3);
-        border-radius: 50px;
-        padding: 0.7rem 1.5rem;
-        font-weight: 600;
-        transition: all 0.25s ease;
-    }
-    .stDownloadButton button:hover {
-        transform: translateY(-2px);
-        box-shadow: 0 8px 24px rgba(40, 167, 69, 0.4);
-        background: linear-gradient(135deg, #218838, #155d27) !important;
-    }
-
-    @media (max-width: 640px) {
-        .app-title { font-size: 1.6rem; }
-        .chat-bubble-ai, .chat-bubble-user { font-size: 14px; padding: 10px 14px; }
-        .stForm { padding: 1rem !important; }
-        .stButton > button { font-size: 0.9rem; padding: 0.5rem 1.2rem; }
-        .main-container { padding: 0.5rem; }
-        .stRadio label { padding: 0.4rem 1rem; font-size: 0.9rem; }
-    }
-
-    ::-webkit-scrollbar { width: 6px; height: 6px; }
-    ::-webkit-scrollbar-track { background: #eef2f7; border-radius: 10px; }
-    ::-webkit-scrollbar-thumb { background: #b0c4d9; border-radius: 10px; }
-    ::-webkit-scrollbar-thumb:hover { background: #8aa0b9; }
-
-    #MainMenu {visibility: hidden;}
-    footer {visibility: hidden;}
-    .stDeployButton {display: none;}
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700&display=swap');
+    html, body, .stApp { font-family: 'Inter', sans-serif; background: #f8faff; }
+    .main-container { max-width: 800px; margin: 0 auto; padding: 1rem; }
+    .app-title { font-size: 2.2rem; font-weight: 700; color: #0b3954; }
+    .chat-bubble-ai { background: white; padding: 15px; border-radius: 12px; border-left: 5px solid #dc3545; margin-bottom: 10px; box-shadow: 0 2px 5px rgba(0,0,0,0.05); }
+    .chat-bubble-user { background: #dc3545; color: white; padding: 12px; border-radius: 12px; float: right; clear: both; margin-bottom: 10px; }
+    .report-box { background: white; padding: 20px; border-radius: 12px; border-left: 5px solid #1e6f9f; box-shadow: 0 4px 10px rgba(0,0,0,0.05); }
+    .warning-box { background: #fff9e6; color: #8a6d3b; padding: 15px; border-radius: 8px; border-left: 5px solid #ffc107; font-weight: bold; }
 </style>
 """, unsafe_allow_html=True)
 
-# --- Language Selection Sidebar ---
+# --- Sidebar ---
 with st.sidebar:
-    st.markdown('<div class="sidebar-content">', unsafe_allow_html=True)
-    st.image("https://img.icons8.com/fluency/96/000000/doctor.png", width=80)
     st.markdown("## 🌐 Language / ভাষা")
-    lang = st.radio("Select Chat Language", ["English", "বাংলা"], index=0, label_visibility="collapsed")
-    st.markdown("---")
-    st.caption("🩸 Early Diabetes Screening Assistant")
-    st.caption("Powered by AI • Clinical Guidelines • CatBoost")
-    st.markdown('</div>', unsafe_allow_html=True)
+    lang = st.radio("Select Chat Language", ["English", "বাংলা"], index=0)
 
-# --- Questions Definition ---
+# --- Questions ---
 questions = [
     {"field": "Age", "en": "What is your Age?", "bn": "আপনার বয়স কত?"},
     {"field": "Gender", "en": "What is your Gender?", "bn": "আপনার লিঙ্গ কী?", "options": ["Male", "Female"]},
@@ -528,247 +241,130 @@ questions = [
     {"field": "Alopecia", "en": "Are you experiencing significant hair loss (Alopecia)?", "bn": "আপনার কি অতিরিক্ত চুল পড়ে যাওয়ার (Alopecia) সমস্যা হচ্ছে?", "options": ["Yes", "No"]}
 ]
 
-# --- Session State Initializations ---
-if "step" not in st.session_state:
-    st.session_state.step = -2
-if "patient_name" not in st.session_state:
-    st.session_state.patient_name = ""
-if "user_responses" not in st.session_state:
-    st.session_state.user_responses = {}
-if "chat_history" not in st.session_state:
-    st.session_state.chat_history = []
+if "step" not in st.session_state: st.session_state.step = -2
+if "patient_name" not in st.session_state: st.session_state.patient_name = ""
+if "user_responses" not in st.session_state: st.session_state.user_responses = {}
+if "chat_history" not in st.session_state: st.session_state.chat_history = []
 
-# --- Helper functions ---
-def add_chat(role, text):
-    st.session_state.chat_history.append({"role": role, "text": text})
-
+def add_chat(role, text): st.session_state.chat_history.append({"role": role, "text": text})
 def transition_to(new_step):
     st.session_state.step = new_step
     st.rerun()
 
-# --- Main App Render ---
 st.markdown('<div class="main-container">', unsafe_allow_html=True)
-
-# Title
-st.markdown("""
-    <div class="fade-in">
-        <span class="app-title">🩸 DECat‑AI</span>
-        <p class="app-subtitle">Early Diabetes Screening • Intelligent Clinical Support</p>
-    </div>
-""", unsafe_allow_html=True)
+st.markdown('<span class="app-title">🩸 DECat‑AI</span><p>Early Diabetes Screening</p>', unsafe_allow_html=True)
 st.markdown("---")
 
-# Chat history
-chat_container = st.container()
-with chat_container:
-    for chat in st.session_state.chat_history:
-        if chat.get("role") == "ai":
-            st.markdown(f'<div class="chat-bubble-ai">🤖 <b>DECat-AI:</b> {chat.get("text", "")}</div>', unsafe_allow_html=True)
-        elif chat.get("role") == "user":
-            st.markdown(f'<div style="width:100%; overflow:auto;"><div class="chat-bubble-user">👤 {chat.get("text", "")}</div></div>', unsafe_allow_html=True)
+# Render History
+for chat in st.session_state.chat_history:
+    if chat["role"] == "ai":
+        st.markdown(f'<div class="chat-bubble-ai">🤖 <b>DECat-AI:</b> {chat["text"]}</div>', unsafe_allow_html=True)
+    else:
+        st.markdown(f'<div style="overflow:auto;"><div class="chat-bubble-user">👤 {chat["text"]}</div></div>', unsafe_allow_html=True)
 
-# --- STEP -2: ASK FOR PATIENT NAME ---
+# --- STEP -2: NAME ---
 if st.session_state.step == -2:
-    welcome_init = (
-        "Hello! Welcome to our Early Diabetes Screening Desk. I am your AI Doctor, DECat-AI. Before we begin, may I know your name please?"
-        if lang == "English" else
-        "হ্যালো! আমাদের আর্লি ডায়াবেটিস স্ক্রিনিং ডেস্কে আপনাকে স্বাগত। আমি আপনার এআই ডাক্তার, DECat-AI। আমাদের পরীক্ষা শুরু করার আগে, আমি কি আপনার নামটা জানতে পারি?"
-    )
-    st.markdown(f'<div class="chat-bubble-ai slide-left">🤖 <b>DECat-AI:</b> {welcome_init}</div>', unsafe_allow_html=True)
-    
-    # ===== FORM 1: NAME =====
-    with st.form(key="form_name_step", clear_on_submit=False):
-        name_input = st.text_input("Enter your name..." if lang == "English" else "আপনার নাম লিখুন...", key="name_input_field")
-        submit_name = st.form_submit_button("Next ➡️" if lang == "English" else "পরবর্তী ➡️")
-        
-        if submit_name and name_input.strip():
-            st.session_state.patient_name = name_input.strip()
-            add_chat("ai", welcome_init)
-            add_chat("user", name_input.strip())
-            
-            welcome_back = (
-                f"Nice to meet you, {st.session_state.patient_name}! I am DECat-AI. How are you doing today? Do you have any health concerns? "
-                f"By the way, can I start your early diabetes screening test now?"
-                if lang == "English" else
-                f"আপনার সাথে পরিচিত হয়ে ভালো লাগলো, {st.session_state.patient_name}! আমি DECat-AI। আজ আপনি কেমন আছেন? আপনার কি কোনো স্বাস্থ্য সমস্যা হচ্ছে? "
-                f"ভালো কথা, আমি কি আপনার ডায়াবেটিস স্ক্রিনিং টেস্টটি এখন শুরু করতে পারি?"
-            )
-            add_chat("ai", welcome_back)
-            transition_to(-1)
+    welcome_init = "Hello! Welcome. I am DECat-AI. May I know your name please?" if lang == "English" else "হ্যালো! আমি DECat-AI। আপনার নামটা জানতে পারি?"
+    st.markdown(f'<div class="chat-bubble-ai">🤖 <b>DECat-AI:</b> {welcome_init}</div>', unsafe_allow_html=True)
+    with st.form(key="name_form"):
+        name_input = st.text_input("Name")
+        if st.form_submit_button("Next"):
+            if name_input.strip():
+                st.session_state.patient_name = name_input.strip()
+                add_chat("ai", welcome_init)
+                add_chat("user", name_input.strip())
+                transition_to(-1)
 
-# --- STEP -1: NATURAL CHAT & INTENT TRIGGER ---
+# --- STEP -1: CONSENT ---
 elif st.session_state.step == -1:
-    # ===== FORM 2: CHAT =====
-    with st.form(key="form_chat_step", clear_on_submit=True):
-        user_msg = st.text_input("Ask me anything or say something..." if lang == "English" else "আমাকে যেকোনো প্রশ্ন করুন বা কিছু বলুন...", key="chat_input_field")
-        submit_chat = st.form_submit_button("Send 💬" if lang == "English" else "পাঠান 💬")
-        
-        if submit_chat and user_msg.strip():
-            add_chat("user", user_msg.strip())
-            
-            positive_keywords = [
-                "ha", "haa", "hay", "hoy", "yes", "y", "ok", "okay", "sure", "start", "go", "test", 
-                "হ্যাঁ", "হ্যা", "হুম", "করুন", "করো", "শুরু", "ঠিক আছে", "চলুন", "হবে"
-            ]
-            if any(kw in user_msg.strip().lower() for kw in positive_keywords):
-                ack = (
-                    "Great! Let's begin the screening. I'll ask you a few questions about your health."
-                    if lang == "English" else
-                    "চমৎকার! তাহলে স্ক্রিনিং শুরু করা যাক। আমি আপনাকে আপনার স্বাস্থ্য সম্পর্কে কয়েকটি প্রশ্ন করব।"
-                )
-                add_chat("ai", ack)
-                transition_to(0)
-            else:
-                with st.spinner("🤔 Thinking..."):
-                    try:
-                        client = Groq(api_key=GROQ_API_KEY)
-                        chat_context = [
-                            {
-                                "role": "system", 
-                                "content": (
-                                    f"You are DECat-AI, a warm, natural and empathetic AI Doctor talking to {st.session_state.patient_name}. "
-                                    f"Answer their questions or chats conversationally and concisely in {lang}. "
-                                    f"At the end of your response, you MUST always ask them elegantly whether you can start the diabetes test now."
-                                )
-                            }
-                        ]
-                        for h in st.session_state.chat_history[-6:]:
-                            chat_context.append({"role": "user" if h["role"] == "user" else "assistant", "content": h["text"]})
-                            
-                        reply = client.chat.completions.create(
-                            model="llama-3.1-8b-instant",
-                            messages=chat_context,
-                            temperature=0.6,
-                            max_tokens=250
-                        )
-                        ai_reply = reply.choices[0].message.content
-                    except Exception:
-                        ai_reply = "I see. Shall we start your early diabetes risk test now?" if lang == "English" else "বুঝতে পারলাম। আমরা কি এখন আপনার ডায়াবেটিস পরীক্ষাটি শুরু করতে পারি?"
-                
-                add_chat("ai", ai_reply)
-                st.rerun()
+    ask_consent = f"Nice to meet you {st.session_state.patient_name}. Can we start the diabetes screening test?"
+    st.markdown(f'<div class="chat-bubble-ai">🤖 <b>DECat-AI:</b> {ask_consent}</div>', unsafe_allow_html=True)
+    with st.form(key="consent_form"):
+        user_reply = st.text_input("Reply")
+        if st.form_submit_button("Send"):
+            add_chat("ai", ask_consent)
+            add_chat("user", user_reply)
+            transition_to(0)
 
-# --- 📋 STEP 0 to N: MEDICAL QUESTIONNAIRE ---
+# --- QUESTIONNAIRE LOOP ---
 elif 0 <= st.session_state.step < len(questions):
     current_q = questions[st.session_state.step]
     q_text = current_q["bn"] if lang == "বাংলা" else current_q["en"]
+    st.markdown(f'<div class="chat-bubble-ai">🤖 <b>DECat-AI:</b> {q_text}</div>', unsafe_allow_html=True)
     
-    st.markdown(f'<div class="chat-bubble-ai slide-left">🤖 <b>DECat-AI:</b> {q_text}</div>', unsafe_allow_html=True)
-    
-    # ===== FORM 3: MEDICAL QUESTIONS (each step is a separate form) =====
-    with st.form(key=f"form_medical_step_{st.session_state.step}"):
+    with st.form(key=f"q_form_{st.session_state.step}"):
         if "options" in current_q:
-            opt_mapping = {"Male": "পুরুষ" if lang == "বাংলা" else "Male", "Female": "নারী" if lang == "বাংলা" else "Female", "Yes": "হ্যাঁ" if lang == "বাংলা" else "Yes", "No": "না" if lang == "বাংলা" else "No"}
-            rev_mapping = {v: k for k, v in opt_mapping.items()}
-            
-            user_choice = st.radio("Choose one:", [opt_mapping[o] for o in current_q["options"]], index=None, label_visibility="collapsed", key=f"med_radio_{st.session_state.step}")
-            submit_btn = st.form_submit_button("Next ➡️" if lang == "English" else "পরবর্তী ➡️")
-            
-            if submit_btn:
-                if user_choice is None:
-                    st.error("Please select an option!" if lang == "English" else "দয়া করে একটি অপশন সিলেক্ট করুন!")
-                else:
-                    st.session_state.user_responses[current_q["field"]] = rev_mapping[user_choice]
-                    add_chat("ai", q_text)
-                    add_chat("user", user_choice)
-                    st.session_state.step += 1
-                    st.rerun()
+            ans = st.radio("Choose:", current_q["options"], index=None)
+            if st.form_submit_button("Next") and ans:
+                st.session_state.user_responses[current_q["field"]] = ans
+                add_chat("ai", q_text)
+                add_chat("user", ans)
+                transition_to(st.session_state.step + 1)
         else:
-            user_val = st.number_input("Enter your age:", min_value=1, max_value=120, value=None, placeholder="e.g. 35", label_visibility="collapsed", key=f"med_age_{st.session_state.step}")
-            submit_btn = st.form_submit_button("Next ➡️" if lang == "English" else "পরবর্তী ➡️")
-            
-            if submit_btn:
-                if user_val is None:
-                    st.error("Please enter your age!" if lang == "English" else "দয়া করে আপনার বয়স লিখুন!")
-                else:
-                    st.session_state.user_responses[current_q["field"]] = int(user_val)
-                    add_chat("ai", q_text)
-                    add_chat("user", str(int(user_val)))
-                    st.session_state.step += 1
-                    st.rerun()
+            ans = st.number_input("Age", min_value=1, max_value=120, value=None)
+            if st.form_submit_button("Next") and ans:
+                st.session_state.user_responses[current_q["field"]] = int(ans)
+                add_chat("ai", q_text)
+                add_chat("user", str(ans))
+                transition_to(st.session_state.step + 1)
 
-# --- 📊 FINAL EVALUATION & REPORT ---
+# --- 📊 FINAL EVALUATION (Your cut-off code completed here) ---
 else:
-    st.write("---")
+    st.write("### 📊 Screening Results")
     if model is None:
         st.error("❌ Model file (.cbm) missing. Cannot proceed with risk assessment.")
     else:
         res = st.session_state.user_responses
         input_df = pd.DataFrame([res])
+        
+        # Categorical Conversions
         for col in input_df.columns:
             if col != 'Age':
                 input_df[col] = input_df[col].astype('category')
                 
+        # Model Inference
         prediction = model.predict(input_df)[0]
         probability = model.predict_proba(input_df)[0]
-        is_positive = str(prediction) == "1" or prediction == 1 or str(prediction).lower() == "positive"
-        score = probability[1] if is_positive else probability[0]
         
-        verdict_str = ("ডায়াবেটিসের ঝুঁকি সনাক্ত হয়েছে" if is_positive else "কোনো তাত্ক্ষণিক ঝুঁকি পাওয়া যায়নি") if lang == "বাংলা" else ("DIABETES RISK DETECTED" if is_positive else "NO IMMEDIATE RISK DETECTED")
-        confidence_str = f"{score * 100:.2f}%"
+        # Binary Risk Determination
+        is_positive = bool(prediction == 1 or probability[1] > 0.5)
+        risk_percentage = probability[1] * 100 if is_positive else probability[0] * 100
+        confidence_str = f"{risk_percentage:.1f} percent"
 
-        st.markdown("## 📊 Analytics Summary")
-        
-        col_res1, col_res2 = st.columns([1, 2])
-        with col_res1:
-            if is_positive:
-                st.markdown(f'<div class="metric-card" style="border-left: 6px solid #dc3545;"><h3 style="color:#dc3545;">🚨 {verdict_str}</h3></div>', unsafe_allow_html=True)
-            else:
-                st.markdown(f'<div class="metric-card" style="border-left: 6px solid #28a745;"><h3 style="color:#28a745;">✅ {verdict_str}</h3></div>', unsafe_allow_html=True)
-            st.metric(label="Model Confidence", value=confidence_str)
-        with col_res2:
-            st.write("**Risk Probability Meter**")
-            st.progress(float(score))
-            
-        active_symptoms = [k for k, v in res.items() if v == 'Yes']
-        patient_case_context = f"Patient Name: {st.session_state.patient_name}\nAge: {res['Age']}, Gender: {res['Gender']}\nSymptoms: {', '.join(active_symptoms) if active_symptoms else 'None'}\nVerdict: {verdict_str} ({confidence_str})"
-        
-        with st.spinner("🩺 Consulting clinical guidelines..."):
-            agent_report, sources = get_rag_agent_response(patient_case_context, lang)
-        with st.spinner("📄 Preparing your recommendation document..."):
-            english_prescription_report = get_english_prescription_insights(patient_case_context)
-            
-        st.markdown("## 🤖 AI Doctor Assessment Report")
-        
-        # Display agent report – if it's a rate-limit warning, show in warning box; else show normal report box
-        if agent_report.startswith("⚠️") or "rate limit" in agent_report.lower():
-            st.warning(agent_report)
+        # UI Response Verdict
+        if is_positive:
+            verdict_text = "DIABETES RISK DETECTED" if lang == "English" else "ডায়াবেটিস ঝুঁকি সনাক্ত হয়েছে"
+            st.error(f"⚠️ {verdict_text} ({confidence_str} Confidence)")
         else:
-            st.markdown(f'<div class="report-box">{agent_report}</div>', unsafe_allow_html=True)
+            verdict_text = "NO IMMEDIATE RISK DETECTED" if lang == "English" else "কোনো তাৎক্ষণিক ঝুঁকি পাওয়া যায়নি"
+            st.success(f"✅ {verdict_text} ({confidence_str} Confidence)")
+
+        # Generate LLM RAG Medical Insights
+        patient_summary = ", ".join([f"{k}: {v}" for k, v in res.items()])
+        with st.spinner("Generating clinical recommendations..."):
+            agent_report, sources = get_rag_agent_response(patient_summary, lang)
+            english_report = get_english_prescription_insights(patient_summary)
+            
+        # Display Report
+        st.markdown(f'<div class="report-box"><h4>📋 Clinical Report</h4>{agent_report}</div>', unsafe_allow_html=True)
         
-        # --- Display References ---
-        with st.expander("📚 References (Guidelines Consulted with Rag)", expanded=True):
-            ref_html = '<div class="ref-box"><ul>'
-            for src in sources:
-                ref_html += f'<li>{src}</li>'
-            ref_html += '</ul></div>'
-            st.markdown(ref_html, unsafe_allow_html=True)
-        
-        warning_text_display = "⚠️ Warning: Preliminary screening report only. Consult a doctor." if lang == "English" else "⚠️ সতর্কবার্তা: প্রাথমিক স্ক্রিনিং রিপোর্ট মাত্র। ডাক্তারের পরামর্শ নিন।"
-        st.markdown(f'<div class="warning-box">{warning_text_display}</div>', unsafe_allow_html=True)
-        
-        st.write(" ")
-        prescription_pdf = generate_prescription_pdf(
-            st.session_state.patient_name, 
-            res, 
-            verdict_str, 
-            confidence_str, 
-            english_prescription_report,
-            sources
+        # Display RAG References
+        st.markdown("### 📚 References")
+        for s in sources:
+            st.caption(f"- {s}")
+            
+        # PDF Generation Button
+        pdf_data = generate_prescription_pdf(
+            st.session_state.patient_name, res, verdict_text, confidence_str, english_report, sources
         )
         st.download_button(
-            label="📥 Download Recommendation PDF",
-            data=prescription_pdf,
-            file_name=f"AI_Recommendation_{st.session_state.patient_name}.pdf",
+            label="📥 Download Clinical Report PDF",
+            data=pdf_data,
+            file_name=f"{st.session_state.patient_name}_diabetes_screening.pdf",
             mime="application/pdf"
         )
-
-    st.write(" ")
-    if st.button("🔄 Restart Assessment"):
-        st.session_state.step = -2
-        st.session_state.patient_name = ""
-        st.session_state.user_responses = {}
-        st.session_state.chat_history = []
-        st.rerun()
+        
+        # Warning Box
+        st.markdown("<br><div class="warning-box">⚠️ Warning: This screening report is for reference only. Please consult a doctor.</div>", unsafe_allow_html=True)
 
 st.markdown('</div>', unsafe_allow_html=True)
