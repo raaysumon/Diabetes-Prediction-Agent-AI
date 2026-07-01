@@ -200,58 +200,67 @@ with st.sidebar:
     st.markdown("### ⚙️ Settings / সেটিংস")
     lang_selection = st.radio("System Interface Language:", ["English", "বাংলা"], index=0)
 
-# --- 8. 100% DEVICE-COMPATIBLE FIXED GRAY THEME CSS INJECTION ---
+# --- 8. 100% DEVICE & SAMSUNG INTERNET COMPATIBLE CSS INJECTION ---
 st.markdown("""
 <style>
-    /* ইউনিভার্সাল ফন্ট স্ট্যাক এবং স্থায়ী ধূসর ব্যাকগ্রাউন্ড */
+    /* সব ব্রাউজারের ডিফল্ট মার্জিন-প্যাডিং ফোর্স রিসেট */
+    * {
+        box-sizing: border-box !important;
+    }
+    
+    /* ইউনিভার্সাল সিস্টেম ফন্ট স্ট্যাক এবং স্থায়ী লাইট ধূসর ব্যাকগ্রাউন্ড */
     html, body, .stApp { 
-        font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+        font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif !important;
         background-color: #f0f2f5 !important; 
+        color: #212529 !important;
     }
     
     .main-wrapper { 
-        max-width: 100%; 
-        width: 800px;
-        margin: 0 auto; 
-        padding: 10px; 
+        max-width: 100% !important; 
+        width: 800px !important;
+        margin: 0 auto !important; 
+        padding: 10px !important; 
     }
     
     .header-logo { 
-        font-size: calc(1.5rem + 1vw);
-        font-weight: 700; 
-        color: #bd2130; 
-        letter-spacing: -0.5px; 
+        font-size: calc(1.5rem + 1vw) !important;
+        font-weight: 700 !important; 
+        color: #bd2130 !important; 
+        letter-spacing: -0.5px !important; 
     }
     
-    /* এআই চ্যাট বাবল - স্থায়ী ধোঁয়াটে ধূসর টোন */
+    /* এআই চ্যাট বাবল - স্থায়ী সলিড ধোঁয়াটে ধূসর টোন (Muted Slate Gray) */
     .chat-bubble-ai { 
-        background-color: #e9ecef; 
-        color: #212529; 
-        padding: 14px 16px; 
-        border-radius: 12px; 
-        border-left: 5px solid #bd2130; 
-        margin-bottom: 12px; 
-        box-shadow: 0 2px 5px rgba(0,0,0,0.05); 
-        font-size: 15px; 
-        word-wrap: break-word;
+        background-color: #e9ecef !important; 
+        color: #212529 !important; 
+        padding: 14px 16px !important; 
+        border-radius: 12px !important; 
+        border-left: 5px solid #bd2130 !important; 
+        margin-bottom: 12px !important; 
+        display: block !important;
+        width: 100% !important;
+        box-shadow: 0 2px 5px rgba(0,0,0,0.05) !important; 
+        font-size: 15px !important; 
+        word-wrap: break-word !important;
     }
     
     /* ইউজার চ্যাট বাবল - ইউনিভার্সাল ডার্ক রেড */
     .chat-bubble-user { 
-        background-color: #bd2130; 
+        background-color: #bd2130 !important; 
         color: #ffffff !important; 
-        padding: 12px 18px; 
-        border-radius: 12px; 
-        float: right; 
-        clear: both; 
-        margin-bottom: 12px; 
-        font-size: 15px; 
-        box-shadow: 0 2px 6px rgba(189,33,48,0.15); 
-        max-width: 85%;
-        word-wrap: break-word;
+        padding: 12px 18px !important; 
+        border-radius: 12px !important; 
+        display: inline-block !important;
+        float: right !important; 
+        clear: both !important; 
+        margin-bottom: 12px !important; 
+        font-size: 15px !important; 
+        max-width: 85% !important;
+        word-wrap: break-word !important;
+        box-shadow: 0 2px 6px rgba(189,33,48,0.15) !important;
     }
     
-    /* ফর্ম এলিমেন্ট ব্যাকগ্রাউন্ড */
+    /* ফর্ম এলিমেন্ট ব্যাকগ্রাউন্ড এবং বর্ডার ফিক্স */
     div[data-testid="stForm"] {
         background-color: #ffffff !important;
         border: 1px solid #ced4da !important;
@@ -260,8 +269,8 @@ st.markdown("""
     }
 
     @media (max-width: 640px) {
-        .chat-bubble-user { max-width: 90%; padding: 10px 14px; }
-        .chat-bubble-ai { padding: 12px 14px; }
+        .chat-bubble-user { max-width: 90% !important; padding: 10px 14px !important; }
+        .chat-bubble-ai { padding: 12px 14px !important; }
     }
 </style>
 """, unsafe_allow_html=True)
