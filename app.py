@@ -13,7 +13,12 @@ from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
 import io
 
 # --- 1. PAGE CONFIGURATION ---
-st.set_page_config(page_title="Early Diabetes Chatbot AI", page_icon="🩸", layout="wide", initial_sidebar_state="collapsed")
+st.set_page_config(
+    page_title="Early Diabetes Chatbot AI", 
+    page_icon="🩸", 
+    layout="wide", 
+    initial_sidebar_state="collapsed"
+)
 
 # --- 2. API KEY MANAGEMENT ---
 try:
@@ -170,8 +175,8 @@ def build_clinical_pdf(patient_name, patient_data, verdict, confidence, english_
     doc = SimpleDocTemplate(buffer, pagesize=letter, rightMargin=40, leftMargin=40, topMargin=40, bottomMargin=40)
     story = []
     styles = getSampleStyleSheet()
-    title_style = ParagraphStyle('TStyle', parent=styles['Heading1'], fontSize=18, textColor=colors.HexColor('#0066cc'), alignment=1, spaceAfter=15, fontName='Helvetica-Bold')
-    sec_style = ParagraphStyle('SecStyle', parent=styles['Heading2'], fontSize=12, textColor=colors.HexColor('#4a90e2'), spaceBefore=10, spaceAfter=5, fontName='Helvetica-Bold')
+    title_style = ParagraphStyle('TStyle', parent=styles['Heading1'], fontSize=18, textColor=colors.HexColor('#2563eb'), alignment=1, spaceAfter=15, fontName='Helvetica-Bold')
+    sec_style = ParagraphStyle('SecStyle', parent=styles['Heading2'], fontSize=12, textColor=colors.HexColor('#3b82f6'), spaceBefore=10, spaceAfter=5, fontName='Helvetica-Bold')
     body_style = ParagraphStyle('BStyle', parent=styles['Normal'], fontSize=10, leading=14, textColor=colors.HexColor('#222222'), fontName='Helvetica')
     
     story.append(Paragraph("DECat-AI ADVANCED CLINICAL REPORT", title_style))
@@ -200,130 +205,142 @@ with st.sidebar:
     st.markdown("### ⚙️ Settings / সেটিংস")
     lang_selection = st.radio("System Interface Language:", ["English", "বাংলা"], index=0)
 
-# --- 8. PREMIUM METALLIC DARK THEME WITH UNIVERSAL BLUE BUTTONS ---
+# --- 8. FANCY, FULLY RESPONSIVE DARK METALLIC BLUE CSS ---
 st.markdown("""
 <style>
     * {
         box-sizing: border-box !important;
     }
     
-    /* ১. টপ হেডার বার সম্পূর্ণ হাইড */
-    header[data-testid="stHeader"] {
+    /* টপ বার ও মেনু বাটন চিরতরে গায়েব */
+    header[data-testid="stHeader"], div[data-testid="stToolbar"] {
         background-color: transparent !important;
         background: transparent !important;
         height: 0px !important;
         display: none !important;
     }
     
-    div[data-testid="stToolbar"] {
-        display: none !important;
-    }
-    
-    /* ২. মেইন মেটালিক চারকোল ব্যাকগ্রাউন্ড */
+    /* প্রিমিয়াম লাক্সারি মেটালিক ব্যাকগ্রাউন্ড */
     html, body, .stApp { 
-        font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif !important;
-        background-color: #1a1e24 !important; 
-        color: #e2e8f0 !important;
+        font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif !important;
+        background: linear-gradient(135deg, #0f172a 0%, #1e293b 100%) !important; 
+        color: #f1f5f9 !important;
     }
     
     section[data-testid="stSidebar"] {
-        background-color: #111418 !important;
+        background-color: #0b0f19 !important;
     }
     
+    /* রেসপন্সিভ মেইন র্যাপার বক্স */
     .main-wrapper { 
-        max-width: 100% !important; 
-        width: 720px !important;
-        margin: 20px auto !important; 
+        width: 100% !important;
+        max-width: 740px !important;
+        margin: 15px auto !important; 
         padding: 24px !important; 
-        background-color: #222933 !important; 
-        border-radius: 20px !important; 
-        box-shadow: 0 12px 40px rgba(0,0,0,0.4) !important;
-        border: 1px solid #2e3745 !important;
+        background: rgba(30, 41, 59, 0.7) !important;
+        backdrop-filter: blur(16px) !important;
+        border-radius: 24px !important; 
+        box-shadow: 0 20px 50px rgba(0, 0, 0, 0.5) !important;
+        border: 1px solid rgba(255, 255, 255, 0.08) !important;
     }
     
+    /* ফ্যান্সি গ্রেডিয়েন্ট লোগো টেক্সট */
     .header-logo { 
-        font-size: calc(1.5rem + 0.7vw) !important;
-        font-weight: 700 !important; 
-        color: #3b82f6 !important; /* ব্র্যান্ডেড ব্লু লোগো টেক্সট */
+        font-size: calc(1.6rem + 0.8vw) !important;
+        font-weight: 800 !important; 
+        background: linear-gradient(90deg, #60a5fa, #3b82f6) !important;
+        -webkit-background-clip: text !important;
+        -webkit-text-fill-color: transparent !important;
         display: block !important;
         text-align: center !important;
-        margin-bottom: 5px !important;
+        margin-bottom: 8px !important;
+        letter-spacing: -0.5px !important;
     }
     
-    /* ৩. এআই চ্যাট বাবল থিম */
+    /* এআই চ্যাট বাবল ইন্টেলিজেন্ট প্যাডিং ও রেসপন্সিভ লেআউট */
     .chat-bubble-ai { 
-        background-color: #2d3748 !important; 
-        color: #f7fafc !important; 
-        padding: 16px 20px !important; 
-        border-radius: 16px !important; 
-        border-left: 5px solid #1d4ed8 !important; /* ব্লু বর্ডার সূচক */
-        margin-bottom: 16px !important; 
+        background-color: #1e293b !important; 
+        color: #f8fafc !important; 
+        padding: 16px 22px !important; 
+        border-radius: 18px !important; 
+        border-left: 6px solid #2563eb !important; 
+        margin-bottom: 18px !important; 
         display: block !important;
         width: 100% !important;
         font-size: 15px !important; 
         line-height: 1.6 !important;
-        box-shadow: 0 4px 12px rgba(0,0,0,0.15) !important;
+        box-shadow: 0 8px 20px rgba(0, 0, 0, 0.2) !important;
     }
     
-    /* ৪. ইউজার চ্যাট বাবল ইউনিভার্সাল ব্লু থিম */
+    /* ইউজার চ্যাট বাবল - লাক্সারি ব্লু থিম */
     .chat-bubble-user { 
-        background-color: #1d4ed8 !important; 
+        background: linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%) !important;
         color: #ffffff !important; 
-        padding: 14px 20px !important; 
-        border-radius: 16px !important; 
+        padding: 14px 22px !important; 
+        border-radius: 18px !important; 
         display: inline-block !important;
         float: right !important; 
         clear: both !important; 
-        margin-bottom: 16px !important; 
+        margin-bottom: 18px !important; 
         font-size: 15px !important; 
-        max-width: 85% !important;
-        box-shadow: 0 4px 14px rgba(29,78,216,0.3) !important;
+        max-width: 88% !important;
+        word-wrap: break-word !important;
+        box-shadow: 0 8px 25px rgba(37, 99, 235, 0.3) !important;
     }
     
-    /* ৫. ফর্ম ও ইনপুট বক্স ডার্ক স্টাইলিং */
+    /* আল্ট্রা মডার্ন ইনপুট ফর্ম বক্স */
     div[data-testid="stForm"] {
-        background-color: #1a202c !important;
-        border: 1px solid #2d3748 !important;
-        border-radius: 16px !important;
-        padding: 22px !important;
-        box-shadow: inset 0 2px 4px rgba(0,0,0,0.2) !important;
+        background-color: #0f172a !important;
+        border: 1px solid rgba(255, 255, 255, 0.05) !important;
+        border-radius: 20px !important;
+        padding: 24px !important;
+        box-shadow: inset 0 4px 12px rgba(0,0,0,0.3) !important;
     }
     
     input[type="text"], input[type="number"] {
-        background-color: #2d3748 !important;
+        background-color: #1e293b !important;
         color: #ffffff !important;
-        border: 1px solid #4a5568 !important;
-        border-radius: 8px !important;
+        border: 1px solid #334155 !important;
+        border-radius: 12px !important;
+        padding: 12px !important;
     }
     
-    /* 🛠️ ৬. গ্লোবাল ইউনিভার্সাল ব্লু বাটন ফিক্স (সব বাটন এখন একই রয়াল ব্লু দেখাবে) */
+    /* ⚡ গ্লোবাল ফ্যান্সি ইউনিভার্সাল ব্লু বাটন স্টাইলিং (রেসপন্সিভ ফুল-উইডথ) */
     div[data-testid="stForm"] button, .stButton button, div[data-testid="stDownloadButton"] button {
-        background-color: #1d4ed8 !important; /* সলিড প্রফেশনাল ইউনিভার্সাল ব্লু */
-        color: #ffffff !important; /* পরিষ্কার রিডাবল সাদা টেক্সট */
+        background: linear-gradient(90deg, #2563eb 0%, #1d4ed8 100%) !important;
+        color: #ffffff !important; 
         border: none !important;
-        padding: 12px 28px !important;
+        padding: 14px 28px !important;
         font-size: 15px !important;
-        font-weight: 600 !important;
-        border-radius: 10px !important;
-        box-shadow: 0 4px 14px rgba(29,78,216,0.4) !important;
-        transition: all 0.25s ease-in-out !important;
-        width: 100% !important; /* ফুল উইডথ বাটন লেআউট */
+        font-weight: 700 !important;
+        border-radius: 12px !important;
+        box-shadow: 0 6px 20px rgba(37, 99, 235, 0.4) !important;
+        transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1) !important;
+        width: 100% !important; 
         display: block !important;
+        letter-spacing: 0.3px !important;
     }
     
     div[data-testid="stForm"] button:hover, .stButton button:hover, div[data-testid="stDownloadButton"] button:hover {
-        background-color: #1e40af !important; /* হোভার ইফেক্টে ডিপ ব্লু টোন */
-        box-shadow: 0 6px 18px rgba(29,78,216,0.5) !important;
-        transform: translateY(-1px) !important;
+        background: linear-gradient(90deg, #3b82f6 0%, #2563eb 100%) !important;
+        box-shadow: 0 10px 25px rgba(37, 99, 235, 0.5) !important;
+        transform: translateY(-1.5px) !important;
     }
     
     label, p, span, div[data-baseweb="radio"] {
-        color: #edf2f7 !important;
+        color: #cbd5e1 !important;
     }
 
-    @media (max-width: 768px) {
-        .main-wrapper { margin: 10px auto !important; padding: 15px !important; border-radius: 12px !important; }
-        .chat-bubble-user { max-width: 90% !important; }
+    /* মোবাইল ডিভাইসের জন্য স্পেশাল রেসপন্সিভ মিডিয়া কোয়েরি */
+    @media (max-width: 640px) {
+        .main-wrapper { 
+            margin: 8px auto !important; 
+            padding: 16px !important; 
+            border-radius: 16px !important; 
+        }
+        .chat-bubble-user { max-width: 92% !important; padding: 12px 18px !important; }
+        .chat-bubble-ai { padding: 14px 18px !important; }
+        div[data-testid="stForm"] { padding: 16px !important; }
     }
 </style>
 """, unsafe_allow_html=True)
@@ -334,7 +351,7 @@ quiz_schema = [
     {"field": "Gender", "en": "Select biological sex parameter:", "bn": "আপনার জৈবিক লিঙ্গ নির্বাচন করুন:", "options": ["Male", "Female"]},
     {"field": "Polyuria", "en": "Do you experience excessive or unusually frequent urination (Polyuria)?", "bn": "আপনার কি অতিরিক্ত বা ঘন ঘন প্রস্রাবের সমস্যা (Polyuria) হচ্ছে?", "options": ["Yes", "No"]},
     {"field": "Polydipsia", "en": "Are you experiencing constant, extreme fluid thirst (Polydipsia)?", "bn": "আপনার কি প্রতিনিয়ত অতিরিক্ত বা অস্বাভাবিক তৃষ্ণা (Polydipsia) পাচ্ছে?", "options": ["Yes", "No"]},
-    {"field": "Irritability", "en": "Have you noticed any persistent patterns of sudden irritability or mood spikes?", "bn": "আপনি কি ইদানীং অতিরিক্ত খิตখিট মেজাজ বা মানসিক অস্থিরতা অনুভব করছেন?", "options": ["Yes", "No"]},
+    {"field": "Irritability", "en": "Have you noticed any persistent patterns of sudden irritability or mood spikes?", "bn": "আপনি কি ইদানীং অতিরিক্ত খিটখিটে মেজাজ বা মানসিক অস্থিরতা অনুভব করছেন?", "options": ["Yes", "No"]},
     {"field": "Itching", "en": "Do you experience localized or generalized recurring skin itching?", "bn": "আপনার ত্বকে কি ঘন ঘন বা দীর্ঘস্থায়ী চুলকানির সমস্যা হচ্ছে?", "options": ["Yes", "No"]},
     {"field": "delayed healing", "en": "Do surface cuts, scratches, or flesh wounds take a prolonged time to completely heal?", "bn": "আপনার শরীরের কোনো ক্ষত, কাটা বা স্ক্র্যাচ শুকাতে কি স্বাভাবিকের চেয়ে বেশি সময় লাগছে?", "options": ["Yes", "No"]},
     {"field": "Alopecia", "en": "Are you suffering from active, accelerated hair thinning or loss patches (Alopecia)?", "bn": "আপনার কি অতিরিক্ত চুল পড়া বা নির্দিষ্ট স্থান থেকে চুল উঠে যাওয়ার (Alopecia) লক্ষণ দেখা দিচ্ছে?", "options": ["Yes", "No"]}
@@ -351,8 +368,8 @@ def record_chat(role, payload): st.session_state.chat_history.append({"role": ro
 def reroute_pipeline_to(next_node): st.session_state.step = next_node; st.rerun()
 
 st.markdown('<div class="main-wrapper">', unsafe_allow_html=True)
-st.markdown('<span class="header-logo">🩸 DECat‑AI Desk</span>', unsafe_allow_html=True)
-st.markdown("<hr style='border: 1px solid #2e3745;' />", unsafe_allow_html=True)
+st.markdown('<span class="header-logo">🧬 DECat‑AI Clinical Desk</span>', unsafe_allow_html=True)
+st.markdown("<hr style='border: 1px solid rgba(255,255,255,0.06);' />", unsafe_allow_html=True)
 
 # Render previous chat history
 for message_bubble in st.session_state.chat_history:
