@@ -57,7 +57,7 @@ def load_clinical_knowledge_base():
         }
     ]
 
-# --- INTENT CLASSIFIER ENGINE (ইউজারের অসম্মতি বা 'পরে করব' ট্র্যাক করার জন্য) ---
+# --- INTENT CLASSIFIER ENGINE ---
 def check_user_consent_intent(user_text):
     try:
         client = Groq(api_key=GROQ_API_KEY)
@@ -73,7 +73,7 @@ def check_user_consent_intent(user_text):
         )
         return completion.choices[0].message.content.strip()
     except Exception:
-        return "START" # ফলব্যাক হিসেবে চালু রাখা হলো
+        return "START"
 
 # --- 4. DYNAMIC AUTOMATED RAG ENGINE WITH CITATIONS ---
 def real_rag_retrieval(patient_symptoms_string, similarity_threshold=0.01):
@@ -100,7 +100,7 @@ def generate_rag_clinical_assessment(patient_name, prediction_label, confidence,
         client = Groq(api_key=GROQ_API_KEY)
         lang_rule = f"Your entire response MUST be written strictly in {language}."
         system_prompt = (
-            f"You are DECat-AI, a helpful digital clinician specializing in Diabetes Risk Screening. {lang_rule}\n"
+            "You are DECat-AI, a helpful digital clinician specializing in Diabetes Risk Screening. " + lang_rule + "\n"
             f"Explain the diagnostic risk dynamically based on CatBoost: {prediction_label} ({confidence}).\n"
             f"Advise tests and structure cleanly using header fields: 'Diagnostic Guidance', 'Dietary Action Plan', and 'Lifestyle Protocol'.\n"
             f"CRITICAL: Always append the clinical citation names inline at the end of relevant paragraphs, e.g., (Source: WHO 2023)."
@@ -135,15 +135,15 @@ def generate_followup_answer(user_question, language, patient_context, verdict, 
     except Exception as e:
         return f"Error: {str(e)}"
 
-def generate_pdf_prescription_insights(patient_context, matched_chunks):
-    context_str = "\n".join([f"[{c['citation']}]: {c['text']}" for c in matched_chunks])
+def generate_pdf_prescription_insights(symptoms_query_string, matched_literature):
+    context_str = "\n".join([f"[{c['citation']}]: {c['text']}" for c in matched_literature])
     try:
         client = Groq(api_key=GROQ_API_KEY)
         completion = client.chat.completions.create(
             model="llama-3.1-8b-instant",
             messages=[
                 {"role": "system", "content": "Summarize recommendations in English. Keys: DIAGNOSTIC ADVICE:, DIETARY MODIFICATIONS:, LIFESTYLE PROTOCOL:. Include source names inline. Plain text only."},
-                {"role": "user", "content": f"Context:\n{context_str}\nMetrics:\n{patient_context}"}
+                {"role": "user", "content": f"Context:\n{context_str}\nMetrics:\n{symptoms_query_string}"}
             ], temperature=0.01, max_tokens=250
         )
         return completion.choices[0].message.content
@@ -238,7 +238,7 @@ st.markdown('<div class="main-wrapper">', unsafe_allow_html=True)
 st.markdown('<span class="header-logo">🩸 DECat‑AI Desk</span>', unsafe_allow_html=True)
 st.markdown("---")
 
-# চ্যাট হিস্টোরি রেন্ডারিং
+# Render previous chat history
 for message_bubble in st.session_state.chat_history:
     if message_bubble["role"] == "ai":
         st.markdown(f'<div class="chat-bubble-ai">🤖 <b>DECat-AI:</b> {message_bubble["text"]}</div>', unsafe_allow_html=True)
@@ -247,7 +247,7 @@ for message_bubble in st.session_state.chat_history:
 
 # STEP -2: IDENTITY
 if st.session_state.step == -2:
-    init_greeting = "Hello! Before we talk about your health, could you please tell me your full name?" if lang_selection == "English" else "হ্যালো! আপনার স্বাস্থ্য নিয়ে কথা বলার আগে, আমি কি আপনার সম্পূর্ণ নামটা জানতে পারি?"
+    init_greeting = "Hello! Before we talk about your health, could you please tell me your full name?" if lang_selection == "English" else "হ্যালো! আপনার স্বাস্থ্য নিয়ে কথা বলার আগে, আমি কি আপনার সম্পূর্ণ নামটা জানতে পারি?"
     st.markdown(f'<div class="chat-bubble-ai">🤖 <b>DECat-AI:</b> {init_greeting}</div>', unsafe_allow_html=True)
     with st.form(key="identity_node"):
         raw_name = st.text_input("Your Name / আপনার নাম")
@@ -256,25 +256,30 @@ if st.session_state.step == -2:
             record_chat("ai", init_greeting); record_chat("user", raw_name.strip())
             reroute_pipeline_to(-1)
 
-# STEP -1: COMPLIANCE WITH INTENT PROTECTION (FIXED)
+# STEP -1: COMPLIANCE WITH INTENT PROTECTION
 elif st.session_state.step == -1:
-    consent_prompt = f"Nice to meet you, {st.session_state.patient_name}. Would you like to check your diabetes risks with a quick screening test?" if lang_selection == "English" else f"আপনার সাথে পরিচিত হয়ে ভালো লাগলো, {st.session_state.patient_name}। আপনি কি ছোট একটা স্ক্রীনিং টেস্ট করতে চান?"
+    consent_prompt = f"Nice to meet you, {st.session_state.patient_name}. Would you like to check your diabetes risks with a quick screening test?" if lang_selection == "English" else f"আপনার সাথে পরিচিত হয়ে ভালো লাগলো, {st.session_state.patient_name}। আপনি কি ছোট একটা স্ক্রীনিং টেস্ট করতে চান?"
     st.markdown(f'<div class="chat-bubble-ai">🤖 <b>DECat-AI:</b> {consent_prompt}</div>', unsafe_allow_html=True)
-    with st.form(key="consent_node"):
+    with st.form(key="consent_node", clear_on_submit=True):
         consent_reply = st.text_input("Your Response / উত্তর দিন")
         if st.form_submit_button("Submit 🚀") and consent_reply.strip():
-            # ইন্টেন্ট এনালাইসিস চালানো হচ্ছে
             intent_result = check_user_consent_intent(consent_reply.strip())
             
             if intent_result == "START":
                 record_chat("ai", consent_prompt); record_chat("user", consent_reply.strip())
                 reroute_pipeline_to(0)
             else:
-                # ইউজার পরে করতে চাইলে বা অন্য কথা বললে তাকে এখানেই হোল্ড করা হবে
                 record_chat("ai", consent_prompt); record_chat("user", consent_reply.strip())
                 hold_reply = "Sure, no problem! Whenever you are ready to take the screening test, please let me know or just reload." if lang_selection == "English" else "অবশ্যই, কোনো সমস্যা নেই! আপনি যখনই স্ক্রীনিং টেস্টটি করতে প্রস্তুত হবেন, আমাকে জানাবেন অথবা পেজটি রিলোড করবেন।"
                 record_chat("ai", hold_reply)
-                st.rerun()
+                reroute_pipeline_to(-3)
+
+# STEP -3: HOLD STATE (ডুপ্লিকেশন এড়ানোর ডেডিকেটেড নোড)
+elif st.session_state.step == -3:
+    st.write(" ")
+    btn_label = "Start Screening Test Now 🚀" if lang_selection == "English" else "এখনই স্ক্রীনিং টেস্ট শুরু করুন 🚀"
+    if st.button(btn_label):
+        reroute_pipeline_to(0)
 
 # SURVEY ENGINE LOOP
 elif 0 <= st.session_state.step < len(quiz_schema):
@@ -309,7 +314,6 @@ else:
     
     matched_literature = real_rag_retrieval(symptoms_query_string)
     
-    # ML Inference
     evaluation_dataframe = pd.DataFrame([telemetry_payload])
     for column in evaluation_dataframe.columns:
         if column != 'Age': evaluation_dataframe[column] = evaluation_dataframe[column].astype('category')
@@ -337,11 +341,13 @@ else:
     else:
         st.success(f"✅ {verdict_header} ({formatted_confidence_string})")
 
-    # ফলো-আপ চ্যাট বক্স
+    # Follow-up Chat Box
     st.markdown("#### 💬 Ask DECat-AI Doctor Anything (Follow-up Chat)")
     with st.form(key="followup_form", clear_on_submit=True):
         patient_question = st.text_input("আপনার মনে কি কোনো প্রশ্ন আছে? এখানে লিখুন:", placeholder="Type your follow-up medical question here...")
-        if st.form_submit_button("Ask Doctor 🩺") and patient_question.strip():
+        submitted = st.form_submit_button("Ask Doctor 🩺")
+        
+        if submitted and patient_question.strip():
             record_chat("user", patient_question.strip())
             with st.spinner("Doctor is analyzing..."):
                 doctor_reply = generate_followup_answer(
@@ -350,7 +356,7 @@ else:
                 record_chat("ai", doctor_reply)
             st.rerun()
 
-    # পিডিএফ জেনারেশন
+    # PDF Generation
     english_pdf_report = generate_pdf_prescription_insights(symptoms_query_string, matched_literature)
     pdf_binary_stream = build_clinical_pdf(st.session_state.patient_name, telemetry_payload, pdf_verdict_header, formatted_confidence_string, english_pdf_report, matched_literature)
     
