@@ -170,7 +170,7 @@ def build_clinical_pdf(patient_name, patient_data, verdict, confidence, english_
     doc = SimpleDocTemplate(buffer, pagesize=letter, rightMargin=40, leftMargin=40, topMargin=40, bottomMargin=40)
     story = []
     styles = getSampleStyleSheet()
-    title_style = ParagraphStyle('TStyle', parent=styles['Heading1'], fontSize=18, textColor=colors.HexColor('#e63946'), alignment=1, spaceAfter=15, fontName='Helvetica-Bold')
+    title_style = ParagraphStyle('TStyle', parent=styles['Heading1'], fontSize=18, textColor=colors.HexColor('#0066cc'), alignment=1, spaceAfter=15, fontName='Helvetica-Bold')
     sec_style = ParagraphStyle('SecStyle', parent=styles['Heading2'], fontSize=12, textColor=colors.HexColor('#4a90e2'), spaceBefore=10, spaceAfter=5, fontName='Helvetica-Bold')
     body_style = ParagraphStyle('BStyle', parent=styles['Normal'], fontSize=10, leading=14, textColor=colors.HexColor('#222222'), fontName='Helvetica')
     
@@ -200,14 +200,14 @@ with st.sidebar:
     st.markdown("### ⚙️ Settings / সেটিংস")
     lang_selection = st.radio("System Interface Language:", ["English", "বাংলা"], index=0)
 
-# --- 8. PREMIUM DARK MATTE (TOP BAR REMOVED) CSS ---
+# --- 8. PREMIUM METALLIC DARK THEME WITH UNIVERSAL BLUE BUTTONS ---
 st.markdown("""
 <style>
     * {
         box-sizing: border-box !important;
     }
     
-    /* 🛠️ ১. ওপুরের সাদা টপ বার এবং মেনু বার চিরতরে লুকিয়ে ফেলার ফিক্স */
+    /* ১. টপ হেডার বার সম্পূর্ণ হাইড */
     header[data-testid="stHeader"] {
         background-color: transparent !important;
         background: transparent !important;
@@ -219,7 +219,7 @@ st.markdown("""
         display: none !important;
     }
     
-    /* ব্যাকগ্রাউন্ড কুচকুচে কালো নয়, বরং একটি চমৎকার ডার্ক মেটালিক চারকোল টোন */
+    /* ২. মেইন মেটালিক চারকোল ব্যাকগ্রাউন্ড */
     html, body, .stApp { 
         font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif !important;
         background-color: #1a1e24 !important; 
@@ -230,7 +230,6 @@ st.markdown("""
         background-color: #111418 !important;
     }
     
-    /* মেইন কন্টেন্ট বক্স সেন্টারড ও আল্ট্রা-রেসপন্সিভ */
     .main-wrapper { 
         max-width: 100% !important; 
         width: 720px !important;
@@ -245,19 +244,19 @@ st.markdown("""
     .header-logo { 
         font-size: calc(1.5rem + 0.7vw) !important;
         font-weight: 700 !important; 
-        color: #e63946 !important; 
+        color: #3b82f6 !important; /* ব্র্যান্ডেড ব্লু লোগো টেক্সট */
         display: block !important;
         text-align: center !important;
         margin-bottom: 5px !important;
     }
     
-    /* 🛠️ ২. এআই চ্যাট বাবল প্যাডিং ফিক্স (লেখা বাম পাশে চেপে থাকবে না) */
+    /* ৩. এআই চ্যাট বাবল থিম */
     .chat-bubble-ai { 
         background-color: #2d3748 !important; 
         color: #f7fafc !important; 
         padding: 16px 20px !important; 
         border-radius: 16px !important; 
-        border-left: 5px solid #e63946 !important; 
+        border-left: 5px solid #1d4ed8 !important; /* ব্লু বর্ডার সূচক */
         margin-bottom: 16px !important; 
         display: block !important;
         width: 100% !important;
@@ -266,9 +265,9 @@ st.markdown("""
         box-shadow: 0 4px 12px rgba(0,0,0,0.15) !important;
     }
     
-    /* 🛠️ ৩. ইউজার চ্যাট বাবল প্যাডিং ও ইমোজি অ্যালাইনমেন্ট ফিক্স */
+    /* ৪. ইউজার চ্যাট বাবল ইউনিভার্সাল ব্লু থিম */
     .chat-bubble-user { 
-        background-color: #e63946 !important; 
+        background-color: #1d4ed8 !important; 
         color: #ffffff !important; 
         padding: 14px 20px !important; 
         border-radius: 16px !important; 
@@ -278,10 +277,10 @@ st.markdown("""
         margin-bottom: 16px !important; 
         font-size: 15px !important; 
         max-width: 85% !important;
-        box-shadow: 0 4px 14px rgba(230,57,70,0.25) !important;
+        box-shadow: 0 4px 14px rgba(29,78,216,0.3) !important;
     }
     
-    /* ডার্ক মোড ফ্রেন্ডলি ফর্ম কার্ড */
+    /* ৫. ফর্ম ও ইনপুট বক্স ডার্ক স্টাইলিং */
     div[data-testid="stForm"] {
         background-color: #1a202c !important;
         border: 1px solid #2d3748 !important;
@@ -290,29 +289,32 @@ st.markdown("""
         box-shadow: inset 0 2px 4px rgba(0,0,0,0.2) !important;
     }
     
-    /* বাটনের ফ্রেন্ডলি ফিক্স */
-    div[data-testid="stForm"] button, .stButton button {
-        background-color: #e63946 !important; 
-        color: #ffffff !important; 
-        border: none !important;
-        padding: 10px 24px !important;
-        font-size: 15px !important;
-        font-weight: 600 !important;
-        border-radius: 10px !important;
-        box-shadow: 0 4px 12px rgba(230,57,70,0.3) !important;
-        transition: all 0.2s ease-in-out !important;
-        width: auto !important;
-    }
-    
-    div[data-testid="stForm"] button:hover, .stButton button:hover {
-        background-color: #cc323f !important; 
-        transform: translateY(-1px) !important;
-    }
-
-    input {
+    input[type="text"], input[type="number"] {
         background-color: #2d3748 !important;
         color: #ffffff !important;
         border: 1px solid #4a5568 !important;
+        border-radius: 8px !important;
+    }
+    
+    /* 🛠️ ৬. গ্লোবাল ইউনিভার্সাল ব্লু বাটন ফিক্স (সব বাটন এখন একই রয়াল ব্লু দেখাবে) */
+    div[data-testid="stForm"] button, .stButton button, div[data-testid="stDownloadButton"] button {
+        background-color: #1d4ed8 !important; /* সলিড প্রফেশনাল ইউনিভার্সাল ব্লু */
+        color: #ffffff !important; /* পরিষ্কার রিডাবল সাদা টেক্সট */
+        border: none !important;
+        padding: 12px 28px !important;
+        font-size: 15px !important;
+        font-weight: 600 !important;
+        border-radius: 10px !important;
+        box-shadow: 0 4px 14px rgba(29,78,216,0.4) !important;
+        transition: all 0.25s ease-in-out !important;
+        width: 100% !important; /* ফুল উইডথ বাটন লেআউট */
+        display: block !important;
+    }
+    
+    div[data-testid="stForm"] button:hover, .stButton button:hover, div[data-testid="stDownloadButton"] button:hover {
+        background-color: #1e40af !important; /* হোভার ইফেক্টে ডিপ ব্লু টোন */
+        box-shadow: 0 6px 18px rgba(29,78,216,0.5) !important;
+        transform: translateY(-1px) !important;
     }
     
     label, p, span, div[data-baseweb="radio"] {
@@ -332,7 +334,7 @@ quiz_schema = [
     {"field": "Gender", "en": "Select biological sex parameter:", "bn": "আপনার জৈবিক লিঙ্গ নির্বাচন করুন:", "options": ["Male", "Female"]},
     {"field": "Polyuria", "en": "Do you experience excessive or unusually frequent urination (Polyuria)?", "bn": "আপনার কি অতিরিক্ত বা ঘন ঘন প্রস্রাবের সমস্যা (Polyuria) হচ্ছে?", "options": ["Yes", "No"]},
     {"field": "Polydipsia", "en": "Are you experiencing constant, extreme fluid thirst (Polydipsia)?", "bn": "আপনার কি প্রতিনিয়ত অতিরিক্ত বা অস্বাভাবিক তৃষ্ণা (Polydipsia) পাচ্ছে?", "options": ["Yes", "No"]},
-    {"field": "Irritability", "en": "Have you noticed any persistent patterns of sudden irritability or mood spikes?", "bn": "আপনি কি ইদানীং অতিরিক্ত খিটখিটে মেজাজ বা মানসিক অস্থিরতা অনুভব করছেন?", "options": ["Yes", "No"]},
+    {"field": "Irritability", "en": "Have you noticed any persistent patterns of sudden irritability or mood spikes?", "bn": "আপনি কি ইদানীং অতিরিক্ত খิตখিট মেজাজ বা মানসিক অস্থিরতা অনুভব করছেন?", "options": ["Yes", "No"]},
     {"field": "Itching", "en": "Do you experience localized or generalized recurring skin itching?", "bn": "আপনার ত্বকে কি ঘন ঘন বা দীর্ঘস্থায়ী চুলকানির সমস্যা হচ্ছে?", "options": ["Yes", "No"]},
     {"field": "delayed healing", "en": "Do surface cuts, scratches, or flesh wounds take a prolonged time to completely heal?", "bn": "আপনার শরীরের কোনো ক্ষত, কাটা বা স্ক্র্যাচ শুকাতে কি স্বাভাবিকের চেয়ে বেশি সময় লাগছে?", "options": ["Yes", "No"]},
     {"field": "Alopecia", "en": "Are you suffering from active, accelerated hair thinning or loss patches (Alopecia)?", "bn": "আপনার কি অতিরিক্ত চুল পড়া বা নির্দিষ্ট স্থান থেকে চুল উঠে যাওয়ার (Alopecia) লক্ষণ দেখা দিচ্ছে?", "options": ["Yes", "No"]}
@@ -392,7 +394,7 @@ elif st.session_state.step == -1:
 elif st.session_state.step == -3:
     st.write(" ")
     btn_label = "Start Screening Test Now 🚀" if lang_selection == "English" else "এখনই স্ক্রীনিং টেস্ট শুরু করুন 🚀"
-    if st.button(btn_label, use_container_width=True):
+    if st.button(btn_label):
         reroute_pipeline_to(0)
 
 # SURVEY ENGINE LOOP
@@ -478,11 +480,11 @@ else:
     
     st.download_button(
         label="📥 Download Traceable Clinical Report (PDF)" if lang_selection == "English" else "📥 ক্লিনিক্যাল রিপোর্ট ডাউনলোড করুন (PDF)",
-        data=pdf_binary_stream, file_name=f"Clinical_Report_{st.session_state.patient_name}.pdf", mime="application/pdf",
-        use_container_width=True
+        data=pdf_binary_stream, file_name=f"Clinical_Report_{st.session_state.patient_name}.pdf", mime="application/pdf"
     )
     
-    if st.button("Reset Assessment 🔄", use_container_width=True):
+    st.write(" ")
+    if st.button("Reset Assessment 🔄"):
         st.session_state.clear(); st.rerun()
 
 st.markdown('</div>', unsafe_allow_html=True)
