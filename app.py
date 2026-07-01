@@ -21,7 +21,7 @@ st.set_page_config(
 )
 
 # --- 2. API KEY MANAGEMENT ---
-GROQ_API_KEY = st.secrets.get("GROQ_API_KEY", "")
+GROQ_API_KEY = st.secrets.get("GROQ_API_KEY", "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")
 if not GROQ_API_KEY:
     st.error("❌ Groq API Key missing! Please configure 'GROQ_API_KEY' in Streamlit Secrets.")
 
