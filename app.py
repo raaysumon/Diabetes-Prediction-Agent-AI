@@ -195,112 +195,78 @@ def build_clinical_pdf(patient_name, patient_data, verdict, confidence, english_
     buffer.seek(0)
     return buffer
 
-# --- 7. CONFIGURING DARK / LIGHT THEME STATE ---
-if "app_theme" not in st.session_state:
-    st.session_state.app_theme = "light"
-
-# --- 8. SIDEBAR LOCALIZATION & THEME SETTINGS ---
+# --- 7. SIDEBAR LOCALIZATION ---
 with st.sidebar:
     st.markdown("### ⚙️ Settings / সেটিংস")
     lang_selection = st.radio("System Interface Language:", ["English", "বাংলা"], index=0)
-    
-    st.markdown("---")
-    st.markdown("### 🎨 Theme Selector")
-    theme_toggle = st.segmented_control(
-        "Choose Mode:",
-        options=["☀️ Light", "🌙 Dark"],
-        default="☀️ Light" if st.session_state.app_theme == "light" else "🌙 Dark"
-    )
-    st.session_state.app_theme = "light" if "☀️ Light" in theme_toggle else "dark"
 
-# --- 9. MOBILE-RESPONSIVE & DYNAMIC THEME CSS INJECTION ---
-if st.session_state.app_theme == "light":
-    primary_bg = "#fcfdfe"
-    bubble_ai_bg = "#ffffff"
-    bubble_ai_text = "#2b2d42"
-    border_color = "#bd2130"
-    wrapper_shadow = "rgba(0,0,0,0.03)"
-else:
-    primary_bg = "#121212"
-    bubble_ai_bg = "#1e1e1e"
-    bubble_ai_text = "#f5f5f5"
-    border_color = "#ff4d4d"
-    wrapper_shadow = "rgba(255,255,255,0.05)"
-
-st.markdown(f"""
+# --- 8. 100% DEVICE-COMPATIBLE CSS INJECTION ---
+# এখানে কাস্টম CSS ভেরিয়েবল ব্যবহার করা হয়েছে যা ডিভাইসের ডার্ক/লাইট মোডের সাথে ফন্ট ও বাবল কালার অটো-অ্যাডজাস্ট করবে।
+st.markdown("""
 <style>
-    @import url('https://fonts.googleapis.com/css2?family=Inter:wght=300;400;500;600;700&display=swap');
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght=400;500;600;700&display=swap');
     
-    /* Global Styles */
-    html, body, .stApp {{ 
+    html, body, .stApp { 
         font-family: 'Inter', sans-serif; 
-        background-color: {primary_bg} !important; 
-    }}
+    }
     
-    /* Wrapper container designed for absolute mobile flexibility */
-    .main-wrapper {{ 
+    .main-wrapper { 
         max-width: 100%; 
-        width: 820px;
+        width: 800px;
         margin: 0 auto; 
         padding: 10px; 
-    }}
+    }
     
-    .header-logo {{ 
-        font-size: calc(1.6rem + 1vw); /* Responsive Typography */
+    .header-logo { 
+        font-size: calc(1.5rem + 1vw);
         font-weight: 700; 
-        color: #9a031e; 
+        color: #bd2130; 
         letter-spacing: -0.5px; 
-    }}
+    }
     
-    /* Responsive AI and User Chat Bubbles */
-    .chat-bubble-ai {{ 
-        background: {bubble_ai_bg}; 
+    /* 100% ডিভাইস সেফ এআই চ্যাট বাবল (রিসেট সেফ গ্রে টোন) */
+    .chat-bubble-ai { 
+        background-color: var(--st-color-background, #f8f9fa);
+        color: var(--st-color-text, #212529);
         padding: 14px 16px; 
-        border-radius: 14px; 
-        border-left: 5px solid {border_color}; 
+        border-radius: 12px; 
+        border-left: 5px solid #bd2130; 
         margin-bottom: 12px; 
-        box-shadow: 0 4px 12px {wrapper_shadow}; 
+        box-shadow: 0 2px 8px rgba(0,0,0,0.05); 
         font-size: 15px; 
-        color: {bubble_ai_text}; 
         word-wrap: break-word;
-    }}
+    }
     
-    .chat-bubble-user {{ 
-        background: #bd2130; 
-        color: #ffffff; 
+    /* 100% ডিভাইস সেফ ইউজার চ্যাট বাবল (ইউনিভার্সাল ডার্ক রেড) */
+    .chat-bubble-user { 
+        background-color: #bd2130; 
+        color: #ffffff !important; 
         padding: 12px 18px; 
-        border-radius: 14px; 
+        border-radius: 12px; 
         float: right; 
         clear: both; 
         margin-bottom: 12px; 
         font-size: 15px; 
-        box-shadow: 0 3px 8px rgba(189,33,48,0.2); 
+        box-shadow: 0 2px 6px rgba(189,33,48,0.15); 
         max-width: 85%;
         word-wrap: break-word;
-    }}
+    }
     
-    /* Streamlit Form & Radio Button Mobile Optimization */
-    div[data-testid="stForm"] {{
+    /* ফর্ম ও রেডিওর মোবাইল রেস্পনসিভ রেডিয়ারেন্স */
+    div[data-testid="stForm"] {
         border: 1px solid rgba(128, 128, 128, 0.2) !important;
-        padding: 15px !important;
         border-radius: 12px !important;
-        background-color: {bubble_ai_bg} !important;
-    }}
+        padding: 15px !important;
+    }
 
-    /* Fixing responsive behavior of columns on small touchpoints */
-    @media (max-width: 640px) {{
-        .chat-bubble-user {{
-            max-width: 90%;
-            padding: 10px 14px;
-        }}
-        .chat-bubble-ai {{
-            padding: 12px 14px;
-        }}
-    }}
+    @media (max-width: 640px) {
+        .chat-bubble-user { max-width: 90%; padding: 10px 14px; }
+        .chat-bubble-ai { padding: 12px 14px; }
+    }
 </style>
 """, unsafe_allow_html=True)
 
-# --- 10. CLINICAL QUIZ SCHEMA ---
+# --- 9. CLINICAL QUIZ SCHEMA ---
 quiz_schema = [
     {"field": "Age", "en": "Please provide your current age (Years):", "bn": "আপনার বর্তমান বয়স কত (বছর)?"},
     {"field": "Gender", "en": "Select biological sex parameter:", "bn": "আপনার জৈবিক লিঙ্গ নির্বাচন করুন:", "options": ["Male", "Female"]},
@@ -312,7 +278,7 @@ quiz_schema = [
     {"field": "Alopecia", "en": "Are you suffering from active, accelerated hair thinning or loss patches (Alopecia)?", "bn": "আপনার কি অতিরিক্ত চুল পড়া বা নির্দিষ্ট স্থান থেকে চুল উঠে যাওয়ার (Alopecia) লক্ষণ দেখা দিচ্ছে?", "options": ["Yes", "No"]}
 ]
 
-# --- 11. PIPELINE INITIALIZATION ---
+# --- 10. PIPELINE INITIALIZATION ---
 if "step" not in st.session_state: st.session_state.step = -2
 if "patient_name" not in st.session_state: st.session_state.patient_name = ""
 if "user_responses" not in st.session_state: st.session_state.user_responses = {}
@@ -450,7 +416,6 @@ else:
     
     st.write(" ")
     
-    # Buttons optimized with container width for proper mobile touch access
     st.download_button(
         label="📥 Download Traceable Clinical Report (PDF)" if lang_selection == "English" else "📥 ক্লিনিক্যাল রিপোর্ট ডাউনলোড করুন (PDF)",
         data=pdf_binary_stream, file_name=f"Clinical_Report_{st.session_state.patient_name}.pdf", mime="application/pdf",
