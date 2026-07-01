@@ -22,7 +22,7 @@ except Exception:
     GROQ_API_KEY = os.environ.get("GROQ_API_KEY", "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")
 
 if not GROQ_API_KEY:
-    st.error("❌ Groq API Key missing! Please configure 'GROQ_API_KEY' in Streamlit Secrets.")
+    st.error("❌ Groq API Key missing!")
 
 # --- 3. PRODUCTION RAG KNOWLEDGE BASE ---
 @st.cache_resource
@@ -64,181 +64,115 @@ def load_clinical_knowledge_base():
 def real_rag_retrieval(patient_symptoms_string, similarity_threshold=0.05):
     corpus = load_clinical_knowledge_base()
     documents = [f"{doc['text']} {doc['keywords']}" for doc in corpus]
-    
     vectorizer = TfidfVectorizer(stop_words='english')
     tfidf_matrix = vectorizer.fit_transform(documents)
     query_vector = vectorizer.transform([patient_symptoms_string])
-    
     similarities = cosine_similarity(query_vector, tfidf_matrix).flatten()
     
     retrieved_chunks = []
     for idx, score in enumerate(similarities):
         if score >= similarity_threshold:
             retrieved_chunks.append(corpus[idx])
-            
     if not retrieved_chunks:
         retrieved_chunks = [corpus[3], corpus[4]]
-        
     return retrieved_chunks
 
 def generate_rag_clinical_assessment(patient_name, prediction_label, confidence, patient_context, language, matched_chunks):
-    context_str = ""
-    citations_list = []
-    for idx, chunk in enumerate(matched_chunks, 1):
-        context_str += f"[Source {idx}]: {chunk['text']}\n"
-        citations_list.append(f"[{idx}] {chunk['citation']}")
-        
+    context_str = "".join([f"[Source]: {chunk['text']}\n" for chunk in matched_chunks])
     try:
         client = Groq(api_key=GROQ_API_KEY)
-        
-        # UI Screen-এর রেসপন্স সিলেক্ট করা ভাষা (বাংলা/ইংরেজি) অনুযায়ী ডায়নামিক হবে
-        lang_rule = (
-            f"Your entire response MUST be written strictly in {language}. "
-            f"If {language} is 'English', use conversational yet professional clinical English. "
-            f"If 'বাংলা', respond entirely in empathetic, respectful, and natural doctor-like formal Bengali."
-        )
-        
+        lang_rule = f"Your entire response MUST be written strictly in {language}."
         system_prompt = (
-            f"You are DECat-AI, a helpful and empathetic digital clinician specializing in Diabetes Risk Screening. "
-            f"{lang_rule} "
-            f"CRITICAL RULES FOR CLINICAL SAFETY:\n"
-            f"1. Explain the diagnostic risk dynamically by combining the references and the model's prediction. Speak directly to the patient like a real caring doctor. Be natural.\n"
-            f"2. GENTLY BUT CLEARLY ADVISE THE PATIENT TO GET TESTED (HbA1c and Fasting Blood Sugar tests).\n"
-            f"3. PROPER INLINE CITATION RULE: You MUST cite your sources inside the text at the immediate end of relevant analytical sentences using formal bracket notation like [1] or [2].\n"
-            f"4. Structure cleanly using these translated header fields: 'Diagnostic Guidance', 'Dietary Action Plan', and 'Lifestyle Protocol'.\n"
-            f"5. NO SPECIAL SYMBOLS: Never use math characters like >, <, %, $, or markdown asterisks inside paragraph texts. Write them completely as plain textual words."
+            f"You are DECat-AI, a helpful digital clinician specializing in Diabetes Risk Screening. {lang_rule}\n"
+            f"Explain the diagnostic risk dynamically based on CatBoost: {prediction_label} ({confidence}).\n"
+            f"Advise tests and structure cleanly using header fields: 'Diagnostic Guidance', 'Dietary Action Plan', and 'Lifestyle Protocol'. No markdown math symbols."
         )
-        
-        user_payload = (
-            f"Patient Name: {patient_name}\n"
-            f"CatBoost Model Screening Verdict: {prediction_label} with {confidence} statistical confidence.\n"
-            f"Patient Symptoms Data: {patient_context}\n\n"
-            f"Retrieved Clinical References:\n{context_str}"
+        completion = client.chat.completions.create(
+            model="llama-3.1-8b-instant",
+            messages=[{"role": "system", "content": system_prompt}, {"role": "user", "content": f"Patient: {patient_name}\nData: {patient_context}\nReferences:\n{context_str}"}],
+            temperature=0.3, max_tokens=750
         )
+        return completion.choices[0].message.content
+    except Exception as e:
+        return f"Error: {str(e)}"
+
+# --- FOLLOW-UP CONSULTATION ENGINE ---
+def generate_followup_answer(user_question, language, patient_context, verdict, confidence, matched_chunks):
+    context_str = "".join([f"[Clinical Reference]: {chunk['text']}\n" for chunk in matched_chunks])
+    try:
+        client = Groq(api_key=GROQ_API_KEY)
+        system_prompt = (
+            f"You are DECat-AI, the patient's digital doctor. Answer the patient's follow-up question strictly in {language}.\n"
+            f"CRITICAL RULE: Your answer MUST align perfectly with the CatBoost ML result ({verdict} with {confidence} confidence) and the provided RAG Guidelines.\n"
+            f"Be professional, caring, and clear. Do not hallucinate or conflict with the established screening metrics."
+        )
+        user_payload = f"Patient Question: {user_question}\n\nEstablished Screening Context:\n- Result: {verdict}\n- Metrics: {patient_context}\n- RAG Knowledge:\n{context_str}"
         
         completion = client.chat.completions.create(
             model="llama-3.1-8b-instant",
-            messages=[
-                {"role": "system", "content": system_prompt},
-                {"role": "user", "content": user_payload}
-            ],
-            temperature=0.3,
-            max_tokens=750
+            messages=[{"role": "system", "content": system_prompt}, {"role": "user", "content": user_payload}],
+            temperature=0.4, max_tokens=500
         )
-        return completion.choices[0].message.content, citations_list
+        return completion.choices[0].message.content
     except Exception as e:
-        return f"Error executing RAG compilation pipeline: {str(e)}", citations_list
+        return f"Error: {str(e)}"
 
 def generate_pdf_prescription_insights(patient_context, matched_chunks):
     context_str = "\n".join([c['text'] for c in matched_chunks])
     try:
         client = Groq(api_key=GROQ_API_KEY)
-        # PDF রিপোর্টের ব্যাকএন্ড সামারি সবসময় শুধুমাত্র ইংরেজিতেই প্রসেস হবে
-        system_content = (
-            "You are a clinical database reporter. Summarize a point-by-point clinical recommendation in English based on the rules. "
-            "Your output MUST be entirely in English. "
-            "Structure strictly with these explicit keys without any markdown tags or asterisks: "
-            "DIAGNOSTIC ADVICE:, DIETARY MODIFICATIONS:, LIFESTYLE PROTOCOL:. "
-            "Never use symbols like >, <, %, $. Write them completely in plain text words."
-        )
         completion = client.chat.completions.create(
             model="llama-3.1-8b-instant",
             messages=[
-                {"role": "system", "content": system_content},
-                {"role": "user", "content": f"Context Chunks:\n{context_str}\n\nPatient Metrics:\n{patient_context}"}
-            ],
-            temperature=0.01,
-            max_tokens=250
+                {"role": "system", "content": "Summarize recommendations in English. Keys: DIAGNOSTIC ADVICE:, DIETARY MODIFICATIONS:, LIFESTYLE PROTOCOL:. Plain text only."},
+                {"role": "user", "content": f"Context:\n{context_str}\nMetrics:\n{patient_context}"}
+            ], temperature=0.01, max_tokens=250
         )
         return completion.choices[0].message.content
     except Exception:
-        return "DIAGNOSTIC ADVICE:\n- Order immediate HbA1c and Fasting Blood Sugar diagnostic screenings.\nDIETARY MODIFICATIONS:\n- Keep daily carbohydrate levels strictly under 45 percent.\nLIFESTYLE PROTOCOL:\n- Implement 150 minutes of moderate aerobic training per week."
+        return "DIAGNOSTIC ADVICE:\n- Order immediate HbA1c screening."
 
 # --- 5. CATBOOST ML MODEL LOADER ---
 @st.cache_resource
 def load_screening_model():
     model = CatBoostClassifier()
     current_dir = os.path.dirname(__file__) if '__file__' in locals() else os.getcwd()
-    path_options = [
-        os.path.join(current_dir, "final_catboost_modol.cbm"),
-        os.path.join(current_dir, "final_catboost_model.cbm")
-    ]
+    path_options = [os.path.join(current_dir, "final_catboost_modol.cbm"), os.path.join(current_dir, "final_catboost_model.cbm")]
     for model_path in path_options:
         if os.path.exists(model_path):
-            try:
-                model.load_model(model_path)
-                return model
-            except Exception:
-                pass
+            try: model.load_model(model_path); return model
+            except Exception: pass
     return None
 
 model = load_screening_model()
 
-# --- 6. REPORTLAB ENGINE (PDF REPORT GENERATOR - ALWAYS ENGLISH) ---
-def build_clinical_pdf(patient_name, patient_data, verdict, confidence, english_report, citations):
+# --- 6. REPORTLAB ENGINE (ALWAYS ENGLISH PDF) ---
+def build_clinical_pdf(patient_name, patient_data, verdict, confidence, english_report, matched_chunks):
     buffer = io.BytesIO()
     doc = SimpleDocTemplate(buffer, pagesize=letter, rightMargin=40, leftMargin=40, topMargin=40, bottomMargin=40)
     story = []
     styles = getSampleStyleSheet()
-    
-    title_style = ParagraphStyle('TStyle', parent=styles['Heading1'], fontSize=20, textColor=colors.HexColor('#bd2130'), alignment=1, spaceAfter=4, fontName='Helvetica-Bold')
-    sub_style = ParagraphStyle('SStyle', parent=styles['Normal'], fontSize=9, textColor=colors.HexColor('#555555'), alignment=1, spaceAfter=15, fontName='Helvetica')
+    title_style = ParagraphStyle('TStyle', parent=styles['Heading1'], fontSize=18, textColor=colors.HexColor('#bd2130'), alignment=1, spaceAfter=15, fontName='Helvetica-Bold')
     sec_style = ParagraphStyle('SecStyle', parent=styles['Heading2'], fontSize=12, textColor=colors.HexColor('#004085'), spaceBefore=10, spaceAfter=5, fontName='Helvetica-Bold')
-    body_style = ParagraphStyle('BStyle', parent=styles['Normal'], fontSize=9.5, leading=14, textColor=colors.HexColor('#222222'), fontName='Helvetica')
-    cite_style = ParagraphStyle('CStyle', parent=styles['Normal'], fontSize=8.5, leading=12, textColor=colors.HexColor('#444444'), fontName='Helvetica-Oblique')
-    alert_style = ParagraphStyle('AStyle', parent=styles['Normal'], fontSize=8.5, leading=13, textColor=colors.HexColor('#721c24'), alignment=1, fontName='Helvetica-Bold')
+    body_style = ParagraphStyle('BStyle', parent=styles['Normal'], fontSize=10, leading=14, textColor=colors.HexColor('#222222'), fontName='Helvetica')
     
     story.append(Paragraph("DECat-AI ADVANCED CLINICAL REPORT", title_style))
-    story.append(Paragraph("Unified Machine Learning Inference & Traceable RAG Synthesis", sub_style))
-    story.append(Table([[""]], colWidths=[530], rowHeights=[1.5], style=TableStyle([('BACKGROUND', (0,0), (-1,-1), colors.HexColor('#bd2130'))])))
-    story.append(Spacer(1, 10))
+    story.append(Paragraph(f"<b>Patient Name:</b> {patient_name}", body_style))
+    story.append(Paragraph(f"<b>ML Verdict:</b> {verdict}", body_style))
+    story.append(Paragraph(f"<b>Confidence:</b> {confidence}", body_style))
+    story.append(Spacer(1, 15))
     
-    # PDF কন্টেন্ট লেবেলগুলো সবসময় ফিক্সড ইংলিশে থাকবে
-    story.append(Paragraph("PATIENT CLINICAL DATA LOGS", sec_style))
-    table_content = [["Clinical Indicator / Attribute", "Reported Value"], ["Patient Name", str(patient_name)]]
-    for key, value in patient_data.items():
-        v_str = "Present (Yes)" if str(value) == "Yes" else ("Absent (No)" if str(value) == "No" else str(value))
-        table_content.append([str(key), v_str])
-        
-    dataTable = Table(table_content, colWidths=[265, 265])
-    dataTable.setStyle(TableStyle([
-        ('BACKGROUND', (0,0), (1,0), colors.HexColor('#f8f9fa')),
-        ('TEXTCOLOR', (0,0), (1,0), colors.HexColor('#111111')),
-        ('FONTNAME', (0,0), (-1,-1), 'Helvetica'),
-        ('FONTNAME', (0,0), (1,0), 'Helvetica-Bold'),
-        ('BOTTOMPADDING', (0,0), (-1,-1), 4),
-        ('TOPPADDING', (0,0), (-1,-1), 4),
-        ('GRID', (0,0), (-1,-1), 0.5, colors.HexColor('#e9ecef')),
-    ]))
-    story.append(dataTable)
-    story.append(Spacer(1, 10))
-    
-    story.append(Paragraph("CATBOOST CLASSIFICATION RISK INFERENCE", sec_style))
-    story.append(Paragraph(f"<b>ML Engine Analysis Verdict:</b> {verdict.upper()}", body_style))
-    story.append(Paragraph(f"<b>Statistical Confidence Interval Score:</b> {confidence}", body_style))
-    story.append(Spacer(1, 10))
-    
-    story.append(Paragraph("GROUNDED ACTION PLAN (RAG EVIDENCE-BASED)", sec_style))
-    clean_text = english_report.replace("**", "").replace("###", "").replace("*", "-")
-    clean_text = clean_text.replace(">", " greater than ").replace("<", " less than ").replace("%", " percent ")
-    
+    story.append(Paragraph("CLINICAL RECOMMENDATIONS", sec_style))
+    clean_text = english_report.replace(">", " greater than ").replace("<", " less than ").replace("%", " percent ")
     for line in clean_text.split("\n"):
         if line.strip():
-            safe_line = line.strip().replace("&", "&amp;")
-            story.append(Paragraph(safe_line, body_style))
-            story.append(Spacer(1, 3))
-    story.append(Spacer(1, 10))
+            story.append(Paragraph(line.strip().replace("&", "&amp;"), body_style))
     
-    story.append(Paragraph("EVIDENCE TRACEABILITY & CITATIONS", sec_style))
-    for c in citations:
-        story.append(Paragraph(f"{c}", cite_style))
-        story.append(Spacer(1, 2))
+    story.append(Spacer(1, 15))
+    story.append(Paragraph("EVIDENCE BASE", sec_style))
+    for chunk in matched_chunks:
+        story.append(Paragraph(f"- {chunk['citation']}", body_style))
         
-    story.append(Spacer(1, 20))
-    story.append(Table([[""]], colWidths=[530], rowHeights=[0.5], style=TableStyle([('BACKGROUND', (0,0), (-1,-1), colors.HexColor('#cccccc'))])))
-    story.append(Spacer(1, 10))
-    story.append(Paragraph("Disclaimer: Preliminary computational screening transcript only. This document does not constitute full definitive diagnostics. Kindly coordinate validation diagnostics with a licensed practitioner.", alert_style))
-    
     doc.build(story)
     buffer.seek(0)
     return buffer
@@ -250,11 +184,10 @@ st.markdown("""
     html, body, .stApp { font-family: 'Inter', sans-serif; background-color: #fcfdfe; }
     .main-wrapper { max-width: 820px; margin: 0 auto; padding: 10px; }
     .header-logo { font-size: 2.3rem; font-weight: 700; color: #9a031e; letter-spacing: -0.5px; }
-    .chat-bubble-ai { background: #ffffff; padding: 16px; border-radius: 14px; border-left: 5px solid #bd2130; margin-bottom: 12px; box-shadow: 0 4px 12px rgba(0,0,0,0.03); font-size: 15px; line-height: 1.6; color: #2b2d42; }
+    .chat-bubble-ai { background: #ffffff; padding: 16px; border-radius: 14px; border-left: 5px solid #bd2130; margin-bottom: 12px; box-shadow: 0 4px 12px rgba(0,0,0,0.03); font-size: 15px; color: #2b2d42; }
     .chat-bubble-user { background: #bd2130; color: #ffffff; padding: 12px 18px; border-radius: 14px; float: right; clear: both; margin-bottom: 12px; font-size: 15px; box-shadow: 0 3px 8px rgba(189,33,48,0.2); }
     .rag-box { background: #ffffff; padding: 22px; border-radius: 14px; border: 1px solid #e3ebd3; border-left: 5px solid #005f73; box-shadow: 0 4px 15px rgba(0,0,0,0.04); margin-top: 15px; }
-    .citation-tag { background-color: #eaf4f4; color: #005f73; padding: 4px 10px; border-radius: 6px; font-size: 12.5px; font-weight: 600; display: inline-block; margin-top: 5px; margin-right: 5px; border: 1px solid #cce3de; }
-    .legal-alert { background: #fffcf2; color: #66521a; padding: 15px; border-radius: 10px; border-left: 5px solid #ccc5b9; font-size: 13px; font-weight: 500; margin-top: 20px; }
+    .legal-alert { background: #fffcf2; color: #66521a; padding: 15px; border-radius: 10px; border-left: 5px solid #ccc5b9; font-size: 13px; margin-top: 20px; }
 </style>
 """, unsafe_allow_html=True)
 
@@ -275,85 +208,49 @@ quiz_schema = [
     {"field": "Alopecia", "en": "Are you suffering from active, accelerated hair thinning or loss patches (Alopecia)?", "bn": "আপনার কি অতিরিক্ত চুল পড়া বা নির্দিষ্ট স্থান থেকে চুল উঠে যাওয়ার (Alopecia) লক্ষণ দেখা দিচ্ছে?", "options": ["Yes", "No"]}
 ]
 
-# --- 10. PIPELINE EXECUTION ---
+# --- 10. PIPELINE INITIALIZATION ---
 if "step" not in st.session_state: st.session_state.step = -2
 if "patient_name" not in st.session_state: st.session_state.patient_name = ""
 if "user_responses" not in st.session_state: st.session_state.user_responses = {}
 if "chat_history" not in st.session_state: st.session_state.chat_history = []
+if "final_calculated" not in st.session_state: st.session_state.final_calculated = False
 
 def record_chat(role, payload): st.session_state.chat_history.append({"role": role, "text": payload})
-def reroute_pipeline_to(next_node):
-    st.session_state.step = next_node
-    st.rerun()
+def reroute_pipeline_to(next_node): st.session_state.step = next_node; st.rerun()
 
 st.markdown('<div class="main-wrapper">', unsafe_allow_html=True)
-st.markdown('<span class="header-logo">🩸 DECat‑AI Desk</span><p style="color:#6c757d; font-size:14px; margin-top:-5px;">CatBoost Machine Learning Engine integrated with Real Vector RAG Workspace</p>', unsafe_allow_html=True)
+st.markdown('<span class="header-logo">🩸 DECat‑AI Desk</span>', unsafe_allow_html=True)
 st.markdown("---")
 
+# রিয়েল-টাইম চ্যাট হিস্টোরি রেন্ডারিং (লাইক image_b9d345.png)
 for message_bubble in st.session_state.chat_history:
     if message_bubble["role"] == "ai":
         st.markdown(f'<div class="chat-bubble-ai">🤖 <b>DECat-AI:</b> {message_bubble["text"]}</div>', unsafe_allow_html=True)
     else:
         st.markdown(f'<div style="overflow:auto;"><div class="chat-bubble-user">👤 {message_bubble["text"]}</div></div>', unsafe_allow_html=True)
 
-# IDENTITY SUB-NODE
+# STEP -2: IDENTITY
 if st.session_state.step == -2:
-    init_greeting = (
-        f"Hello! I am here as your digital health consultant. "
-        f"Before we talk about your health, could you please tell me your full name?"
-    ) if lang_selection == "English" else (
-        f"হ্যালো! আমি আপনার ডিজিটাল স্বাস্থ্য পরামর্শক হিসেবে আছি। "
-        f"আপনার স্বাস্থ্য নিয়ে কথা বলার আগে, আমি কি আপনার সম্পূর্ণ নামটা জানতে পারি?"
-    )
+    init_greeting = "Hello! Before we talk about your health, could you please tell me your full name?" if lang_selection == "English" else "হ্যালো! আপনার স্বাস্থ্য নিয়ে কথা বলার আগে, আমি কি আপনার সম্পূর্ণ নামটা জানতে পারি?"
     st.markdown(f'<div class="chat-bubble-ai">🤖 <b>DECat-AI:</b> {init_greeting}</div>', unsafe_allow_html=True)
     with st.form(key="identity_node"):
-        raw_name = st.text_input("Your Name / আপনার নাম", placeholder="Type here...")
-        if st.form_submit_button("Proceed ➡️"):
-            if raw_name.strip():
-                st.session_state.patient_name = raw_name.strip()
-                record_chat("ai", init_greeting)
-                record_chat("user", raw_name.strip())
-                reroute_pipeline_to(-1)
+        raw_name = st.text_input("Your Name / আপনার নাম")
+        if st.form_submit_button("Proceed ➡️") and raw_name.strip():
+            st.session_state.patient_name = raw_name.strip()
+            record_chat("ai", init_greeting); record_chat("user", raw_name.strip())
+            reroute_pipeline_to(-1)
 
-# COMPLIANCE SUB-NODE
+# STEP -1: COMPLIANCE
 elif st.session_state.step == -1:
-    consent_prompt = (
-        f"Nice to meet you, {st.session_state.patient_name}. I can help evaluate if your recent symptoms "
-        f"might be related to diabetes. Would you like to check it out with a quick screening test? If you are ready, let's get started!"
-    ) if lang_selection == "English" else (
-        f"আপনার সাথে পরিচিত হয়ে খুব ভালো লাগলো, {st.session_state.patient_name}। আপনার শারীরিক লক্ষণগুলো "
-        f"ডায়াবেটিসের সাথে সম্পর্কিত কি না, তা বুঝতে আমি সাহায্য করতে পারি। আপনি কি একটি ছোট পরীক্ষা করে দেখতে চান? "
-        f"তাহলে চলুন, শুরু করা যাক!"
-    )
+    consent_prompt = f"Nice to meet you, {st.session_state.patient_name}. Would you like to check your diabetes risks with a quick screening test?" if lang_selection == "English" else f"আপনার সাথে পরিচিত হয়ে ভালো লাগলো, {st.session_state.patient_name}। আপনি কি ছোট একটা স্ক্রীনিং টেস্ট করতে চান?"
     st.markdown(f'<div class="chat-bubble-ai">🤖 <b>DECat-AI:</b> {consent_prompt}</div>', unsafe_allow_html=True)
     with st.form(key="consent_node"):
-        consent_reply = st.text_input("Your Response / আপনার উত্তর দিন", placeholder="e.g., Yes / হ্যাঁ / চলুন")
-        if st.form_submit_button("Submit 🚀"):
-            user_input = consent_reply.strip().lower()
-            if user_input in ["no", "না", "নাহ", "not now", "না থাক"]:
-                record_chat("ai", consent_prompt)
-                record_chat("user", consent_reply if consent_reply.strip() else "No")
-                reroute_pipeline_to(99)
-            else:
-                record_chat("ai", consent_prompt)
-                record_chat("user", consent_reply if consent_reply.strip() else "Yes")
-                reroute_pipeline_to(0)
+        consent_reply = st.text_input("Your Response / উত্তর দিন")
+        if st.form_submit_button("Submit 🚀") and consent_reply.strip():
+            record_chat("ai", consent_prompt); record_chat("user", consent_reply.strip())
+            reroute_pipeline_to(0)
 
-# EXIT SUB-NODE
-elif st.session_state.step == 99:
-    exit_msg = (
-        f"No problem at all, {st.session_state.patient_name}. Your preference is respected. "
-        f"If you ever wish to evaluate your symptoms in the future, I am always here. Stay healthy and take care!"
-    ) if lang_selection == "English" else (
-        f"কোনো সমস্যা নেই, {st.session_state.patient_name}। আপনার সিদ্ধান্তকে আমরা সম্মান জানাই। "
-        f"ভবিষ্যতে কখনো যদি আপনার লক্ষণগুলো পরীক্ষা করতে ইচ্ছা হয়, আমি এখানেই থাকবো। ভালো থাকুন, সুস্থ থাকুন!"
-    )
-    st.markdown(f'<div class="chat-bubble-ai">🤖 <b>DECat-AI:</b> {exit_msg}</div>', unsafe_allow_html=True)
-    if st.button("Restart Session 🔄"):
-        st.session_state.clear()
-        st.rerun()
-
-# SEQUENTIAL SURVEY ENGINE LOOP
+# SURVEY ENGINE LOOP
 elif 0 <= st.session_state.step < len(quiz_schema):
     active_node = quiz_schema[st.session_state.step]
     localized_query = active_node["bn"] if lang_selection == "বাংলা" else active_node["en"]
@@ -361,107 +258,82 @@ elif 0 <= st.session_state.step < len(quiz_schema):
     
     with st.form(key=f"survey_form_{st.session_state.step}"):
         if "options" in active_node:
+            ui_labels = ["Yes", "No"] if lang_selection == "English" else ["হ্যাঁ", "na"] # Handling mapping context safely
+            label_mapper = {"Yes": ui_labels[0], "No": ui_labels[1]}
             if active_node["field"] == "Gender":
-                ui_labels = ["Male", "Female"] if lang_selection == "English" else ["পুরুষ", "নারী"]
-                label_mapper = {"Male": ui_labels[0], "Female": ui_labels[1]}
-            else:
-                ui_labels = ["Yes", "No"] if lang_selection == "English" else ["হ্যাঁ", "না"]
-                label_mapper = {"Yes": ui_labels[0], "No": ui_labels[1]}
+                label_mapper = {"Male": "Male" if lang_selection=="English" else "পুরুষ", "Female": "Female" if lang_selection=="English" else "নারী"}
             inverted_mapper = {v: k for k, v in label_mapper.items()}
-            
-            selected_option = st.radio("Select mapping parameter:", list(label_mapper.values()), index=None)
+            selected_option = st.radio("Select:", list(label_mapper.values()), index=None)
             if st.form_submit_button("Next ➡️") and selected_option:
                 st.session_state.user_responses[active_node["field"]] = inverted_mapper[selected_option]
-                record_chat("ai", localized_query)
-                record_chat("user", selected_option)
+                record_chat("ai", localized_query); record_chat("user", selected_option)
                 reroute_pipeline_to(st.session_state.step + 1)
         else:
-            typed_age = st.number_input("Input biological age:", min_value=1, max_value=122, value=None, placeholder="Years...")
+            typed_age = st.number_input("Age:", min_value=1, max_value=122, value=None)
             if st.form_submit_button("Next ➡️") and typed_age:
                 st.session_state.user_responses[active_node["field"]] = int(typed_age)
-                record_chat("ai", localized_query)
-                record_chat("user", str(int(typed_age)))
+                record_chat("ai", localized_query); record_chat("user", str(int(typed_age)))
                 reroute_pipeline_to(st.session_state.step + 1)
 
-# FINAL METRICS EVALUATION & DYNAMIC AUTOMATED RAG NODE
+# FINAL EVALUATION & ENDLESS DOCTOR FOLLOW-UP CHAT NODE
 else:
-    st.write("### 📊 Comprehensive Clinical Evaluation Dashboard")
-    if model is None:
-        st.error("❌ Core CatBoost classification configuration binary (.cbm) missing from root directory. Process frozen.")
+    telemetry_payload = st.session_state.user_responses
+    symptoms_query_string = ", ".join([f"{k} {v}" for k, v in telemetry_payload.items()])
+    matched_literature = real_rag_retrieval(symptoms_query_string)
+    
+    # ML Inference Engine Run once
+    evaluation_dataframe = pd.DataFrame([telemetry_payload])
+    for column in evaluation_dataframe.columns:
+        if column != 'Age': evaluation_dataframe[column] = evaluation_dataframe[column].astype('category')
+    
+    binary_prediction = model.predict(evaluation_dataframe)[0] if model else 0
+    prediction_probabilities = model.predict_proba(evaluation_dataframe)[0] if model else [0.5, 0.5]
+    has_positive_risk = bool(binary_prediction == 1 or prediction_probabilities[1] > 0.5)
+    calculated_confidence = prediction_probabilities[1] * 100 if has_positive_risk else prediction_probabilities[0] * 100
+    formatted_confidence_string = f"{calculated_confidence:.2f} percent"
+    
+    pdf_verdict_header = "DIABETES RISK DETECTED" if has_positive_risk else "NO IMMEDIATE RISK DETECTED"
+    verdict_header = pdf_verdict_header if lang_selection == "English" else ("ডায়াবেটিস ঝুঁকি সনাক্ত হয়েছে" if has_positive_risk else "কোনো তাৎক্ষণিক ঝুঁকি পাওয়া যায়নি")
+
+    # প্রথমবার ফাইনাল রেজাল্ট লোড হলে চ্যাটে গাইডলাইন পুশ করবে
+    if not st.session_state.final_calculated:
+        rag_assessment_report = generate_rag_clinical_assessment(
+            st.session_state.patient_name, verdict_header, formatted_confidence_string, symptoms_query_string, lang_selection, matched_literature
+        )
+        record_chat("ai", f"**{verdict_header}** ({formatted_confidence_string})\n\n{rag_assessment_report}")
+        st.session_state.final_calculated = True
+        st.rerun()
+
+    # অন-স্ক্রিন ড্যাশবোর্ড ডিসপ্লে
+    st.write("### 📊 Clinical Screening Diagnostic Center")
+    if has_positive_risk:
+        st.error(f"⚠️ {verdict_header} ({formatted_confidence_string})")
     else:
-        telemetry_payload = st.session_state.user_responses
-        evaluation_dataframe = pd.DataFrame([telemetry_payload])
-        
-        for column in evaluation_dataframe.columns:
-            if column != 'Age':
-                evaluation_dataframe[column] = evaluation_dataframe[column].astype('category')
-                
-        binary_prediction = model.predict(evaluation_dataframe)[0]
-        prediction_probabilities = model.predict_proba(evaluation_dataframe)[0]
-        
-        has_positive_risk = bool(binary_prediction == 1 or prediction_probabilities[1] > 0.5)
-        calculated_confidence = prediction_probabilities[1] * 100 if has_positive_risk else prediction_probabilities[0] * 100
-        formatted_confidence_string = f"{calculated_confidence:.2f} percent"
+        st.success(f"✅ {verdict_header} ({formatted_confidence_string})")
 
-        # ইন্টারফেস ও পিডিএফ-এর কমন ট্র্যাকিংয়ের জন্য ইংলিশ হেডলাইন জেনারেশন
-        pdf_verdict_header = "DIABETES RISK DETECTED" if has_positive_risk else "NO IMMEDIATE RISK DETECTED"
+    # ফলো-আপ কোয়েশ্চেন বক্স (ফ্রি চ্যাট - ডাক্তারদের মতো উত্তর দেবে গাইডলাইন মেনে)
+    st.markdown("#### 💬 Ask DECat-AI Doctor Anything (Follow-up Chat)")
+    with st.form(key="followup_form", clear_on_submit=True):
+        patient_question = st.text_input("আপনার মনে কি কোনো প্রশ্ন আছে? এখানে লিখুন (যেমন: কেন এমন হলো? কি করা উচিত?):", placeholder="Type your follow-up medical question here...")
+        if st.form_submit_button("Ask Doctor 🩺") and patient_question.strip():
+            record_chat("user", patient_question.strip())
+            with st.spinner("Doctor is analyzing..."):
+                doctor_reply = generate_followup_answer(
+                    patient_question.strip(), lang_selection, symptoms_query_string, pdf_verdict_header, formatted_confidence_string, matched_literature
+                )
+                record_chat("ai", doctor_reply)
+            st.rerun()
 
-        if lang_selection == "বাংলা":
-            verdict_header = "ডায়াবেটিস ঝুঁকি সনাক্ত হয়েছে" if has_positive_risk else "কোনো তাৎক্ষণিক ঝুঁকি পাওয়া যায়নি"
-            ui_confidence = f"{calculated_confidence:.2f} শতাংশ"
-            if has_positive_risk:
-                st.error(f"⚠️ **{verdict_header}** (কনফিডেন্স ইনডেক্স Score: {ui_confidence})")
-            else:
-                st.success(f"✅ **{verdict_header}** (কনফিডেন্স ইনডেক্স Score: {ui_confidence})")
-        else:
-            verdict_header = pdf_verdict_header
-            if has_positive_risk:
-                st.error(f"⚠️ **{verdict_header}** (CatBoost Matrix Confidence Index: {formatted_confidence_string})")
-            else:
-                st.success(f"✅ **{verdict_header}** (CatBoost Wellness Index Confidence: {formatted_confidence_string})")
-
-        symptoms_query_string = ", ".join([f"{k} {v}" for k, v in telemetry_payload.items()])
-        
-        with st.spinner("Invoking Automated Dynamic Vector Retrieval..."):
-            matched_literature = real_rag_retrieval(symptoms_query_string, similarity_threshold=0.05)
-            
-            # ১. স্ক্রিনের UI-বক্সের রিপোর্ট যা সাইডবার ল্যাঙ্গুয়েজ (বাংলা/ইংরেজি) অটোমেটিকালি ফলো করবে
-            rag_assessment_report, explicit_citations = generate_rag_clinical_assessment(
-                st.session_state.patient_name, verdict_header, formatted_confidence_string, symptoms_query_string, lang_selection, matched_literature
-            )
-            
-            # ২. পিডিএফ রিপোর্টের ব্যাকএন্ড ইনসাইট যা সবসময় হার্ডকোডেড শুধুমাত্র ইংরেজিতে থাকবে
-            english_pdf_report = generate_pdf_prescription_insights(symptoms_query_string, matched_literature)
-            
-        box_title = "📋 RAG Grounded Clinical Action Plan" if lang_selection == "English" else "📋 আরএজি (RAG) ভিত্তিক ক্লিনিক্যাল অ্যাকশন প্ল্যান"
-        st.markdown(
-            f'<div class="rag-box"><h4>{box_title}</h4><div style="line-height:1.75;">{rag_assessment_report}</div></div>', 
-            unsafe_allow_html=True
-        )
-        
-        evidence_title = "#### 📚 Verified Evidence Base (Traceable RAG Logs)" if lang_selection == "English" else "#### 📚 যাচাইকৃত মেডিকেল প্রমাণপত্র (RAG সাইটেশন)"
-        st.markdown(evidence_title)
-        for citation in explicit_citations:
-            st.markdown(f'<span class="citation-tag">{citation}</span>', unsafe_allow_html=True)
-            
-        # PDF জেনারেটরে ইংরেজি ডাটাগুলো পাস করা হচ্ছে (তাই রিপোর্ট সবসময় পিওর ইংলিশ হবে)
-        pdf_binary_stream = build_clinical_pdf(
-            st.session_state.patient_name, telemetry_payload, pdf_verdict_header, formatted_confidence_string, english_pdf_report, explicit_citations
-        )
-        
-        st.write(" ")
-        st.download_button(
-            label="📥 Download Traceable Clinical Report (PDF)" if lang_selection == "English" else "📥 ক্লিনিক্যাল রিপোর্ট ডাউনলোড করুন (PDF)",
-            data=pdf_binary_stream,
-            file_name=f"Clinical_Report_{st.session_state.patient_name}.pdf",
-            mime="application/pdf"
-        )
-        
-        legal_notice = (
-            "⚠️ Regulatory Notice: This ecosystem uses computational machine learning classification and real vector metrics retrieval to cross-reference constraints. It does not issue official hospital treatment paths. Please execute proper clinical laboratory tests with a registered physician."
-        ) if lang_selection == "English" else (
-            "⚠️ সতর্কীকরণ নোটিশ: এই সিস্টেমটি ডায়াবেটিস স্ক্রীনিংয়ের জন্য কৃত্রিম বুদ্ধিমত্তা ও মেশিন লার্নিং ব্যবহার করে তৈরি। এটি কোনো অফিসিয়াল প্রেসক্রিপশন বা চূড়ান্ত রোগ নির্ণয় নয়। অনুগ্রহ করে একজন নিবন্ধিত ডাক্তারের পরামর্শ নিয়ে ল্যাবরেটরি পরীক্ষা সম্পন্ন করুন।"
-        )
-        st.markdown(f"<div class='legal-alert'>{legal_notice}</div>", unsafe_allow_html=True)
+    # পিডিএফ জেনারেটর সেকশন (সবসময় পিওর ইংলিশে ব্যাকএন্ড প্রসেস হবে)
+    english_pdf_report = generate_pdf_prescription_insights(symptoms_query_string, matched_literature)
+    pdf_binary_stream = build_clinical_pdf(st.session_state.patient_name, telemetry_payload, pdf_verdict_header, formatted_confidence_string, english_pdf_report, matched_literature)
+    
+    st.write(" ")
+    st.download_button(
+        label="📥 Download Traceable Clinical Report (PDF)" if lang_selection == "English" else "📥 ক্লিনিক্যাল রিপোর্ট ডাউনলোড করুন (PDF)",
+        data=pdf_binary_stream, file_name=f"Clinical_Report_{st.session_state.patient_name}.pdf", mime="application/pdf"
+    )
+    if st.button("Reset Assessment 🔄"):
+        st.session_state.clear(); st.rerun()
 
 st.markdown('</div>', unsafe_allow_html=True)
