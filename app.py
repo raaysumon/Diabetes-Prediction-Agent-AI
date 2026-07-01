@@ -12,7 +12,6 @@ from reportlab.lib import colors
 from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
 import io
 
-# --- 1. PAGE CONFIGURATION ---
 st.set_page_config(
     page_title="Early Diabetes Chatbot AI",
     page_icon="🩸",
