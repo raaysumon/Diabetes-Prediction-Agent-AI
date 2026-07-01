@@ -168,19 +168,26 @@ def generate_pdf_prescription_insights(patient_context, matched_chunks):
     except Exception:
         return "DIAGNOSTIC ADVICE:\n- Order immediate HbA1c and Fasting Blood Sugar diagnostic screenings.\nDIETARY MODIFICATIONS:\n- Keep daily carbohydrate levels strictly under 45 percent.\nLIFESTYLE PROTOCOL:\n- Implement 150 minutes of moderate aerobic training per week."
 
-# --- 5. CATBOOST ML MODEL LOADER ---
+# --- 5. CATBOOST ML MODEL LOADER (BUG-FIXED FOR 'MODOL' FILE) ---
 @st.cache_resource
 def load_screening_model():
     model = CatBoostClassifier()
     current_dir = os.path.dirname(__file__) if '__file__' in locals() else os.getcwd()
-    model_path = os.path.join(current_dir, "final_catboost_modol.cbm")
-    try:
+    
+    # আপনার ফাইলের নাম 'modol' হওয়ায় এটিকে সরাসরি প্রধান পাথ হিসেবে সেট করা হয়েছে
+    path_options = [
+        os.path.join(current_dir, "final_catboost_modol.cbm"),
+        os.path.join(current_dir, "final_catboost_model.cbm")
+    ]
+    
+    for model_path in path_options:
         if os.path.exists(model_path):
-            model.load_model(model_path)
-            return model
-        return None
-    except Exception:
-        return None
+            try:
+                model.load_model(model_path)
+                return model
+            except Exception:
+                pass
+    return None
 
 model = load_screening_model()
 
