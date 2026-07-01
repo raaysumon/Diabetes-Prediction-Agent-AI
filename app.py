@@ -4,8 +4,6 @@ import pandas as pd
 from catboost import CatBoostClassifier
 from groq import Groq
 import re
-
-# ReportLab Components for Professional Prescription Layout
 from reportlab.lib.pagesizes import letter
 from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle
 from reportlab.lib import colors
@@ -19,20 +17,19 @@ st.set_page_config(
     layout="wide"
 )
 
-# --- API Key ---
-GROQ_API_KEY = "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"
+# --- API Key (use st.secrets in production) ---
+GROQ_API_KEY = st.secrets.get("GROQ_API_KEY", "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")
 
 # --- 📚 RAG Knowledge Base Setup ---
 @st.cache_resource
 def setup_rag_knowledge_base():
-    clinical_guidelines = [
+    return [
         "Guideline: Polyuria (frequent urination) and Polydipsia (excessive thirst) are key indicators of high blood glucose. Immediate tests required: HbA1c (>6.5% indicates diabetes) and Fasting Blood Sugar (FBS >126 mg/dL).",
         "Guideline: Delayed healing of wounds or cuts indicates microvascular complications often related to prolonged hyperglycemia. Patients must be screened for peripheral neuropathy and HbA1c.",
         "Guideline: Diabetes management for high risk includes lifestyle changes: reducing carbohydrate intake to less than 45% of daily calories, engaging in 150 minutes of moderate exercise per week, and weight monitoring.",
         "Guideline: For low risk or negative diabetes risk screen, routine wellness checkup including annual HbA1c and fasting glucose is recommended, especially for adults above 35 years old.",
         "Guideline: Symptoms like Irritability, Alopecia (hair loss), and skin Itching can be secondary systemic signs of metabolic changes or poor circulation linked with early insulin resistance."
     ]
-    return clinical_guidelines
 
 guidelines_db = setup_rag_knowledge_base()
 
@@ -40,7 +37,6 @@ def get_rag_agent_response(patient_context, language):
     context_source = "\n".join(guidelines_db)
     try:
         client = Groq(api_key=GROQ_API_KEY)
-        
         system_content = (
             f"You are an expert Medical AI Agent acting as a supportive AI Doctor named DECat-AI. Analyze the patient strictly based on the provided Clinical Guidelines. "
             f"CRITICAL RULE: You MUST write your entire response strictly in {language}. If the language is বাংলা, use simple and clear Bengali words. "
@@ -49,7 +45,6 @@ def get_rag_agent_response(patient_context, language):
             f"STRICT RULE: Never use mathematical symbols like greater than, less than, percentage signs, dollar signs, or brackets. "
             f"Write them in plain text words if necessary (e.g., in English write 'greater than 6.5 percent', or in Bengali write '৬.৫ শতাংশের বেশি')."
         )
-        
         completion = client.chat.completions.create(
             model="llama-3.3-70b-versatile",
             messages=[
@@ -67,7 +62,6 @@ def get_english_prescription_insights(patient_context):
     context_source = "\n".join(guidelines_db)
     try:
         client = Groq(api_key=GROQ_API_KEY)
-        
         system_content = (
             "You are an expert Medical AI Agent. Generate a highly concise, professional, point-by-point prescription plan in English. "
             "Format the output strictly as a clean, structured bulleted list with these exact section headers: "
@@ -75,7 +69,6 @@ def get_english_prescription_insights(patient_context):
             "Keep each point short, precise, and practical. Do not use formatting markdown symbols like asterisks or hashtags. "
             "STRICT RULE: Never use mathematical symbols like greater than, less than, percentage signs, dollar signs, or brackets. Write them as plain words (e.g., 'percent', 'greater than')."
         )
-        
         completion = client.chat.completions.create(
             model="llama-3.3-70b-versatile",
             messages=[
@@ -110,7 +103,6 @@ def generate_prescription_pdf(patient_name, patient_data, result_text, confidenc
     buffer = io.BytesIO()
     doc = SimpleDocTemplate(buffer, pagesize=letter, rightMargin=40, leftMargin=40, topMargin=40, bottomMargin=40)
     story = []
-    
     styles = getSampleStyleSheet()
     
     header_text = "AI DOCTOR SCREENING SYSTEM"
@@ -132,10 +124,8 @@ def generate_prescription_pdf(patient_name, patient_data, result_text, confidenc
     
     story.append(Paragraph(header_text, header_style))
     story.append(Paragraph(sub_header_text, sub_header_style))
-    
     story.append(Table([[""]], colWidths=[530], rowHeights=[2], style=TableStyle([('BACKGROUND', (0,0), (-1,-1), colors.HexColor('#dc3545'))])))
     story.append(Spacer(1, 15))
-    
     story.append(Paragraph(section1_text, section_style))
     
     data = [[col1_title, col2_title], ["Patient Name", str(patient_name)]]
@@ -155,7 +145,6 @@ def generate_prescription_pdf(patient_name, patient_data, result_text, confidenc
     ]))
     story.append(t)
     story.append(Spacer(1, 15))
-    
     story.append(Paragraph(section2_text, section_style))
     pdf_verdict = "DIABETES RISK DETECTED" if ("DETECTED" in result_text or "সনাক্ত" in result_text) else "NO IMMEDIATE RISK DETECTED"
     verdict_color = '#dc3545' if "DETECTED" in pdf_verdict else '#28a745'
@@ -163,7 +152,6 @@ def generate_prescription_pdf(patient_name, patient_data, result_text, confidenc
     story.append(Paragraph(f"<b>{risk_label}</b> {verdict_html}", body_style))
     story.append(Paragraph(f"<b>{conf_label}</b> {confidence}", body_style))
     story.append(Spacer(1, 15))
-    
     story.append(Paragraph(section3_text, section_style))
     
     clean_report = english_agent_report.replace("**", "").replace("###", "").replace("*", "-")
@@ -178,9 +166,7 @@ def generate_prescription_pdf(patient_name, patient_data, result_text, confidenc
     story.append(Spacer(1, 25))
     story.append(Table([[""]], colWidths=[530], rowHeights=[1], style=TableStyle([('BACKGROUND', (0,0), (-1,-1), colors.HexColor('#cccccc'))])))
     story.append(Spacer(1, 15))
-    
     story.append(Paragraph(warning_text, alert_style))
-    
     doc.build(story)
     buffer.seek(0)
     return buffer
@@ -217,7 +203,7 @@ questions = [
     {"field": "Gender", "en": "What is your Gender?", "bn": "আপনার লিঙ্গ কী?", "options": ["Male", "Female"]},
     {"field": "Polyuria", "en": "Do you experience excessive urination (Polyuria)?", "bn": "আপনার কি অতিরিক্ত প্রস্রাবের সমস্যা (Polyuria) হচ্ছে?", "options": ["Yes", "No"]},
     {"field": "Polydipsia", "en": "Do you feel excessively thirsty (Polydipsia)?", "bn": "আপনার কি অতিরিক্ত তৃষ্ণা (Polydipsia) পায়?", "options": ["Yes", "No"]},
-    {"field": "Irritability", "en": "Have you been feeling unusually irritable lately?", "bn": "আপনি কি ইদানীং খিটখীটে মেজাজ অনুভব করছেন?", "options": ["Yes", "No"]},
+    {"field": "Irritability", "en": "Have you been feeling unusually irritable lately?", "bn": "আপনি কি ইদানীং খিটখিটে মেজাজ অনুভব করছেন?", "options": ["Yes", "No"]},
     {"field": "Itching", "en": "Do you have frequent skin itching?", "bn": "আপনার শরীরে কি ঘন ঘন চুলকানির সমস্যা হচ্ছে?", "options": ["Yes", "No"]},
     {"field": "delayed healing", "en": "Do your wounds or cuts take a long time to heal?", "bn": "আপনার শরীরে কোনো ক্ষত বা কাটা শুকাতে কি স্বাভাবিকের চেয়ে বেশি সময় লাগে?", "options": ["Yes", "No"]},
     {"field": "Alopecia", "en": "Are you experiencing significant hair loss (Alopecia)?", "bn": "আপনার কি অতিরিক্ত চুল পড়ে যাওয়ার (Alopecia) সমস্যা হচ্ছে?", "options": ["Yes", "No"]}
@@ -233,15 +219,20 @@ if "user_responses" not in st.session_state:
 if "chat_history" not in st.session_state:
     st.session_state.chat_history = []
 
-# --- Global Flow Control Flag ---
-should_rerun = False
+# --- Helper to add chat message and rerun ---
+def add_chat(role, text):
+    st.session_state.chat_history.append({"role": role, "text": text})
+
+def transition_to(new_step):
+    st.session_state.step = new_step
+    st.rerun()
 
 # --- Main App Render ---
 st.title("🩸 Early Diabetes Conversational AI Agent" if lang == "English" else "🩸 ডায়াবেটিস চ্যাটবট এআই充জেন্ট")
 st.markdown("---")
 
 with st.container():
-    # Render Chat History safely
+    # Render Chat History
     for chat in st.session_state.chat_history:
         if chat.get("role") == "ai":
             st.markdown(f'<div class="chat-bubble-ai">🤖 <b>DECat-AI:</b> {chat.get("text", "")}</div>', unsafe_allow_html=True)
@@ -261,10 +252,10 @@ with st.container():
             name_input = st.text_input("Enter your name..." if lang == "English" else "আপনার নাম লিখুন...", key="name_input_field")
             submit_name = st.form_submit_button("Next ➡️" if lang == "English" else "পরবর্তী ➡️")
             
-            if submit_name and name_input.strip() != "":
+            if submit_name and name_input.strip():
                 st.session_state.patient_name = name_input.strip()
-                st.session_state.chat_history.append({"role": "ai", "text": welcome_init})
-                st.session_state.chat_history.append({"role": "user", "text": name_input.strip()})
+                add_chat("ai", welcome_init)
+                add_chat("user", name_input.strip())
                 
                 welcome_back = (
                     f"Nice to meet you, {st.session_state.patient_name}! I am DECat-AI. How are you doing today? Do you have any health concerns? "
@@ -273,9 +264,8 @@ with st.container():
                     f"আপনার সাথে পরিচিত হয়ে ভালো লাগলো, {st.session_state.patient_name}! আমি DECat-AI। আজ আপনি কেমন আছেন? আপনার কি কোনো স্বাস্থ্য সমস্যা হচ্ছে? "
                     f"ভালো কথা, আমি কি আপনার ডায়াবেটিস স্ক্রিনিং টেস্টটি এখন শুরু করতে পারি?"
                 )
-                st.session_state.chat_history.append({"role": "ai", "text": welcome_back})
-                st.session_state.step = -1
-                should_rerun = True
+                add_chat("ai", welcome_back)
+                transition_to(-1)
 
     # --- STEP -1: NATURAL CHAT & SEAMLESS AUTOMATIC INTENT TRIGGER ---
     elif st.session_state.step == -1:
@@ -283,18 +273,23 @@ with st.container():
             user_msg = st.text_input("Ask me anything or say something..." if lang == "English" else "আমাকে যেকোনো প্রশ্ন করুন বা কিছু বলুন...", key="chat_input_field")
             submit_chat = st.form_submit_button("Send 💬" if lang == "English" else "পাঠান 💬")
             
-            if submit_chat and user_msg.strip() != "":
-                st.session_state.chat_history.append({"role": "user", "text": user_msg})
+            if submit_chat and user_msg.strip():
+                add_chat("user", user_msg.strip())
                 
-                text_clean = user_msg.strip().lower()
+                # Check if user wants to start the test
                 positive_keywords = [
                     "ha", "haa", "hay", "hoy", "yes", "y", "ok", "okay", "sure", "start", "go", "test", 
                     "হ্যাঁ", "হ্যা", "হুম", "করুন", "করো", "শুরু", "ঠিক আছে", "চলুন", "হবে"
                 ]
-                
-                if any(kw in text_clean for kw in positive_keywords):
-                    st.session_state.step = 0
-                    should_rerun = True
+                if any(kw in user_msg.strip().lower() for kw in positive_keywords):
+                    # AI acknowledges and moves to questionnaire
+                    ack = (
+                        "Great! Let's begin the screening. I'll ask you a few questions about your health."
+                        if lang == "English" else
+                        "চমৎকার! তাহলে স্ক্রিনিং শুরু করা যাক। আমি আপনাকে আপনার স্বাস্থ্য সম্পর্কে কয়েকটি প্রশ্ন করব।"
+                    )
+                    add_chat("ai", ack)
+                    transition_to(0)
                 else:
                     with st.spinner("Thinking..."):
                         try:
@@ -322,8 +317,8 @@ with st.container():
                         except Exception:
                             ai_reply = "I see. Shall we start your early diabetes risk test now?" if lang == "English" else "বুঝতে পারলাম। আমরা কি এখন আপনার ডায়াবেটিস পরীক্ষাটি শুরু করতে পারি?"
                     
-                    st.session_state.chat_history.append({"role": "ai", "text": ai_reply})
-                    should_rerun = True
+                    add_chat("ai", ai_reply)
+                    st.rerun()  # Rerun to show the new messages
 
     # --- 📋 STEP 0 to N: MEDICAL QUESTIONNAIRE ---
     elif 0 <= st.session_state.step < len(questions):
@@ -345,10 +340,10 @@ with st.container():
                         st.error("Please select an option!" if lang == "English" else "দয়া করে একটি অপশন সিলেক্ট করুন!")
                     else:
                         st.session_state.user_responses[current_q["field"]] = rev_mapping[user_choice]
-                        st.session_state.chat_history.append({"role": "ai", "text": q_text})
-                        st.session_state.chat_history.append({"role": "user", "text": user_choice})
+                        add_chat("ai", q_text)
+                        add_chat("user", user_choice)
                         st.session_state.step += 1
-                        should_rerun = True
+                        st.rerun()
             else:
                 user_val = st.number_input("Enter your age:", min_value=1, max_value=120, value=None, placeholder="e.g. 35", label_visibility="collapsed", key=f"med_age_{st.session_state.step}")
                 submit_btn = st.form_submit_button("Next ➡️" if lang == "English" else "পরবর্তী ➡️")
@@ -358,21 +353,22 @@ with st.container():
                         st.error("Please enter your age!" if lang == "English" else "দয়া করে আপনার বয়স লিখুন!")
                     else:
                         st.session_state.user_responses[current_q["field"]] = int(user_val)
-                        st.session_state.chat_history.append({"role": "ai", "text": q_text})
-                        st.session_state.chat_history.append({"role": "user", "text": str(int(user_val))})
+                        add_chat("ai", q_text)
+                        add_chat("user", str(int(user_val)))
                         st.session_state.step += 1
-                        should_rerun = True
+                        st.rerun()
 
     # --- 📊 FINAL EVALUATION & REPORT RENDERING ---
     else:
         st.write("---")
         if model is None:
-            st.error("Model file (.cbm) missing.")
+            st.error("Model file (.cbm) missing. Cannot proceed with risk assessment.")
         else:
             res = st.session_state.user_responses
             input_df = pd.DataFrame([res])
             for col in input_df.columns:
-                if col != 'Age': input_df[col] = input_df[col].astype('category')
+                if col != 'Age':
+                    input_df[col] = input_df[col].astype('category')
                     
             prediction = model.predict(input_df)[0]
             probability = model.predict_proba(input_df)[0]
@@ -385,8 +381,10 @@ with st.container():
             st.subheader("📊 Analytics Summary" if lang == "English" else "📊  অ্যানালিটিক্স সামারি")
             col_res1, col_res2 = st.columns([1, 2])
             with col_res1:
-                if is_positive: st.error("🚨 " + verdict_str)
-                else: st.success("✅ " + verdict_str)
+                if is_positive:
+                    st.error("🚨 " + verdict_str)
+                else:
+                    st.success("✅ " + verdict_str)
                 st.metric(label="Model Confidence", value=confidence_str)
             with col_res2:
                 st.write("**Risk Probability Meter**")
@@ -396,7 +394,7 @@ with st.container():
             patient_case_context = f"Patient Name: {st.session_state.patient_name}\nAge: {res['Age']}, Gender: {res['Gender']}\nSymptoms: {', '.join(active_symptoms) if active_symptoms else 'None'}\nVerdict: {verdict_str} ({confidence_str})"
             
             with st.spinner("Consulting guidelines..."):
-                agent_report, matched_guidelines = get_rag_agent_response(patient_case_context, lang)
+                agent_report, _ = get_rag_agent_response(patient_case_context, lang)
             with st.spinner("Preparing Document..."):
                 english_prescription_report = get_english_prescription_insights(patient_case_context)
                 
@@ -408,7 +406,12 @@ with st.container():
             
             st.write(" ")
             prescription_pdf = generate_prescription_pdf(st.session_state.patient_name, res, verdict_str, confidence_str, english_prescription_report)
-            st.download_button(label="📥 Download Prescription PDF", data=prescription_pdf, file_name=f"AI_Prescription_{st.session_state.patient_name}.pdf", mime="application/pdf")
+            st.download_button(
+                label="📥 Download Prescription PDF",
+                data=prescription_pdf,
+                file_name=f"AI_Prescription_{st.session_state.patient_name}.pdf",
+                mime="application/pdf"
+            )
 
         st.write(" ")
         if st.button("🔄 Restart Assessment"):
@@ -417,7 +420,3 @@ with st.container():
             st.session_state.user_responses = {}
             st.session_state.chat_history = []
             st.rerun()
-
-# --- 🎯 100% BULLETPROOF FIX: FORM এর বাইরে এসে RERUN এক্সিকিউট করা হচ্ছে ---
-if should_rerun:
-    st.rerun()
