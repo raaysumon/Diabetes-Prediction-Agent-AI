@@ -185,81 +185,25 @@ def generate_prescription_pdf(patient_name, patient_data, result_text, confidenc
     buffer.seek(0)
     return buffer
 
-# --- 📱 Enhanced Responsive Custom CSS ---
+# --- 📱 Custom Responsive CSS ---
 st.markdown("""
     <style>
     .stApp { background-color: #f4f6f9; }
-    
-    /* Responsive Chat Bubbles */
     .chat-bubble-ai { 
-        background-color: #ffffff; 
-        padding: 12px 16px; 
-        border-radius: 14px; 
-        border-left: 5px solid #dc3545; 
-        box-shadow: 0 2px 4px rgba(0,0,0,0.04); 
-        margin-bottom: 12px; 
-        font-size: calc(14px + 0.15vw); 
-        line-height: 1.5;
-        max-width: 100%;
+        background-color: #ffffff; padding: 12px 16px; border-radius: 14px; 
+        border-left: 5px solid #dc3545; box-shadow: 0 2px 4px rgba(0,0,0,0.04); 
+        margin-bottom: 12px; font-size: calc(14px + 0.15vw); line-height: 1.5; max-width: 100%;
     }
     .chat-bubble-user { 
-        background-color: #dc3545; 
-        color: white; 
-        padding: 10px 16px; 
-        border-radius: 14px; 
-        text-align: left; 
-        margin-bottom: 12px; 
-        display: inline-block; 
-        float: right; 
-        clear: both; 
-        font-size: calc(14px + 0.15vw);
-        max-width: 85%;
+        background-color: #dc3545; color: white; padding: 10px 16px; border-radius: 14px; 
+        text-align: left; margin-bottom: 12px; display: inline-block; float: right; 
+        clear: both; font-size: calc(14px + 0.15vw); max-width: 85%;
     }
-    
-    /* Responsive Custom Containers */
-    .report-box { 
-        background-color: #eef2f7; 
-        padding: 18px; 
-        border-left: 5px solid #0056b3; 
-        border-radius: 10px; 
-        margin-top: 15px; 
-        font-size: calc(14px + 0.1vw); 
-        line-height: 1.6;
-    }
-    .warning-box {
-        background-color: #fff3cd; 
-        color: #856404; 
-        padding: 14px; 
-        border-left: 5px solid #ffc107; 
-        border-radius: 8px; 
-        margin-top: 15px; 
-        font-size: calc(13px + 0.1vw);
-        font-weight: bold;
-    }
-    .rag-source { 
-        background-color: #e2e3e5; 
-        padding: 12px; 
-        border-radius: 6px; 
-        font-size: 12px; 
-        font-family: monospace; 
-        color: #383d41;
-        overflow-x: auto;
-    }
-    
-    /* Fix radio alignment & tap targets for smaller screens */
-    div[data-testid="stRadio"] > label {
-        font-size: 15px !important;
-    }
-    div[data-testid="stForm"] {
-        border: none !important;
-        padding: 0 !important;
-    }
-    
-    /* Optimize Download Button UI for Mobile */
-    div.stDownloadButton button {
-        width: 100% !important;
-        padding: 10px 15px !important;
-    }
+    .report-box { background-color: #eef2f7; padding: 18px; border-left: 5px solid #0056b3; border-radius: 10px; margin-top: 15px; }
+    .warning-box { background-color: #fff3cd; color: #856404; padding: 14px; border-left: 5px solid #ffc107; border-radius: 8px; margin-top: 15px; font-weight: bold;}
+    .rag-source { background-color: #e2e3e5; padding: 12px; border-radius: 6px; font-size: 12px; font-family: monospace; }
+    div[data-testid="stForm"] { border: none !important; padding: 0 !important; }
+    div.stDownloadButton button { width: 100% !important; }
     </style>
     """, unsafe_allow_html=True)
 
@@ -289,8 +233,11 @@ if "user_responses" not in st.session_state:
 if "chat_history" not in st.session_state:
     st.session_state.chat_history = []
 
+# --- Global Flow Control Flag ---
+should_rerun = False
+
 # --- Main App Render ---
-st.title("🩸 Early Diabetes Conversational AI Agent" if lang == "English" else "🩸 ডায়াবেটিস চ্যাটবট এআই এজেন্ট")
+st.title("🩸 Early Diabetes Conversational AI Agent" if lang == "English" else "🩸 ডায়াবেটিস চ্যাটবট এআই充জেন্ট")
 st.markdown("---")
 
 with st.container():
@@ -301,7 +248,7 @@ with st.container():
         elif chat.get("role") == "user":
             st.markdown(f'<div style="width:100%; overflow:auto;"><div class="chat-bubble-user">👤 {chat.get("text", "")}</div></div>', unsafe_allow_html=True)
 
-    # --- STEP -2: ASK FOR PATIENT NAME (Using Dynamic Form Keys to Prevent State Disconnect) ---
+    # --- STEP -2: ASK FOR PATIENT NAME ---
     if st.session_state.step == -2:
         welcome_init = (
             "Hello! Welcome to our Early Diabetes Screening Desk. I am your AI Doctor, DECat-AI. Before we begin, may I know your name please?"
@@ -310,8 +257,8 @@ with st.container():
         )
         st.markdown(f'<div class="chat-bubble-ai">🤖 <b>DECat-AI:</b> {welcome_init}</div>', unsafe_allow_html=True)
         
-        with st.form(key=f"name_form_step_{st.session_state.step}"):
-            name_input = st.text_input("Enter your name..." if lang == "English" else "আপনার নাম লিখুন...", key="name_field_input")
+        with st.form(key="form_name_step"):
+            name_input = st.text_input("Enter your name..." if lang == "English" else "আপনার নাম লিখুন...", key="name_input_field")
             submit_name = st.form_submit_button("Next ➡️" if lang == "English" else "পরবর্তী ➡️")
             
             if submit_name and name_input.strip() != "":
@@ -328,13 +275,13 @@ with st.container():
                 )
                 st.session_state.chat_history.append({"role": "ai", "text": welcome_back})
                 st.session_state.step = -1
-                st.rerun()
+                should_rerun = True
 
     # --- STEP -1: NATURAL CHAT & SEAMLESS AUTOMATIC INTENT TRIGGER ---
     elif st.session_state.step == -1:
-        with st.form(key=f"natural_chat_form_step_{st.session_state.step}", clear_on_submit=True):
-            user_msg = st.text_input("Ask me anything or say something..." if lang == "English" else "আমাকে যেকোনো প্রশ্ন করুন বা কিছু বলুন...", key="chat_field_input")
-            submit_chat = st.form_submit_button("Send 💬" if lang == "English" else "পাঠan 💬")
+        with st.form(key="form_chat_step", clear_on_submit=True):
+            user_msg = st.text_input("Ask me anything or say something..." if lang == "English" else "আমাকে যেকোনো প্রশ্ন করুন বা কিছু বলুন...", key="chat_input_field")
+            submit_chat = st.form_submit_button("Send 💬" if lang == "English" else "পাঠান 💬")
             
             if submit_chat and user_msg.strip() != "":
                 st.session_state.chat_history.append({"role": "user", "text": user_msg})
@@ -347,7 +294,7 @@ with st.container():
                 
                 if any(kw in text_clean for kw in positive_keywords):
                     st.session_state.step = 0
-                    st.rerun()
+                    should_rerun = True
                 else:
                     with st.spinner("Thinking..."):
                         try:
@@ -358,8 +305,7 @@ with st.container():
                                     "content": (
                                         f"You are DECat-AI, a warm, natural and empathetic AI Doctor talking to {st.session_state.patient_name}. "
                                         f"Answer their questions or chats conversationally and concisely in {lang}. "
-                                        f"At the end of your response, you MUST always ask them elegantly whether you can start the diabetes test now "
-                                        f"(e.g., 'আমি কি আপনার টেস্ট শুরু করতে পারি?')."
+                                        f"At the end of your response, you MUST always ask them elegantly whether you can start the diabetes test now."
                                     )
                                 }
                             ]
@@ -377,7 +323,7 @@ with st.container():
                             ai_reply = "I see. Shall we start your early diabetes risk test now?" if lang == "English" else "বুঝতে পারলাম। আমরা কি এখন আপনার ডায়াবেটিস পরীক্ষাটি শুরু করতে পারি?"
                     
                     st.session_state.chat_history.append({"role": "ai", "text": ai_reply})
-                    st.rerun()
+                    should_rerun = True
 
     # --- 📋 STEP 0 to N: MEDICAL QUESTIONNAIRE ---
     elif 0 <= st.session_state.step < len(questions):
@@ -386,151 +332,92 @@ with st.container():
         
         st.markdown(f'<div class="chat-bubble-ai">🤖 <b>DECat-AI:</b> {q_text}</div>', unsafe_allow_html=True)
         
-        with st.form(key=f"q_form_step_{st.session_state.step}"):
+        with st.form(key=f"form_medical_step_{st.session_state.step}"):
             if "options" in current_q:
-                opt_mapping = {
-                    "Male": "পুরুষ" if lang == "বাংলা" else "Male",
-                    "Female": "নারী" if lang == "বাংলা" else "Female",
-                    "Yes": "হ্যাঁ" if lang == "বাংলা" else "Yes",
-                    "No": "না" if lang == "বাংলা" else "No"
-                }
+                opt_mapping = {"Male": "পুরুষ" if lang == "বাংলা" else "Male", "Female": "নারী" if lang == "বাংলা" else "Female", "Yes": "হ্যাঁ" if lang == "বাংলা" else "Yes", "No": "না" if lang == "বাংলা" else "No"}
                 rev_mapping = {v: k for k, v in opt_mapping.items()}
                 
-                user_choice = st.radio(
-                    "Choose one:", 
-                    [opt_mapping[o] for o in current_q["options"]], 
-                    index=None, 
-                    label_visibility="collapsed",
-                    key=f"radio_input_{st.session_state.step}"
-                )
+                user_choice = st.radio("Choose one:", [opt_mapping[o] for o in current_q["options"]], index=None, label_visibility="collapsed", key=f"med_radio_{st.session_state.step}")
                 submit_btn = st.form_submit_button("Next ➡️" if lang == "English" else "পরবর্তী ➡️")
                 
                 if submit_btn:
                     if user_choice is None:
-                        st.error("Please select an option before moving to the next question!" if lang == "English" else "পরবর্তী প্রশ্নে যাওয়ার আগে দয়া করে একটি অপশন সিলেক্ট করুন!")
+                        st.error("Please select an option!" if lang == "English" else "দয়া করে একটি অপশন সিলেক্ট করুন!")
                     else:
-                        user_val = rev_mapping[user_choice]
-                        st.session_state.user_responses[current_q["field"]] = user_val
+                        st.session_state.user_responses[current_q["field"]] = rev_mapping[user_choice]
                         st.session_state.chat_history.append({"role": "ai", "text": q_text})
                         st.session_state.chat_history.append({"role": "user", "text": user_choice})
                         st.session_state.step += 1
-                        st.rerun()
+                        should_rerun = True
             else:
-                user_val = st.number_input(
-                    "Enter your age:", 
-                    min_value=1, 
-                    max_value=120, 
-                    value=None, 
-                    placeholder="e.g. 35" if lang == "English" else "যেমন: ৩৫",
-                    label_visibility="collapsed",
-                    key=f"age_input_{st.session_state.step}"
-                )
+                user_val = st.number_input("Enter your age:", min_value=1, max_value=120, value=None, placeholder="e.g. 35", label_visibility="collapsed", key=f"med_age_{st.session_state.step}")
                 submit_btn = st.form_submit_button("Next ➡️" if lang == "English" else "পরবর্তী ➡️")
                 
                 if submit_btn:
                     if user_val is None:
-                        st.error("Please enter your age before moving to the next question!" if lang == "English" else "পরবর্তী প্রশ্নে যাওয়ার আগে দয়া করে আপনার বয়স লিখুন!")
+                        st.error("Please enter your age!" if lang == "English" else "দয়া করে আপনার বয়স লিখুন!")
                     else:
-                        user_choice = str(int(user_val))
                         st.session_state.user_responses[current_q["field"]] = int(user_val)
                         st.session_state.chat_history.append({"role": "ai", "text": q_text})
-                        st.session_state.chat_history.append({"role": "user", "text": user_choice})
+                        st.session_state.chat_history.append({"role": "user", "text": str(int(user_val))})
                         st.session_state.step += 1
-                        st.rerun()
+                        should_rerun = True
 
     # --- 📊 FINAL EVALUATION & REPORT RENDERING ---
     else:
         st.write("---")
-        
         if model is None:
-            st.error("Model file (.cbm) missing or failed to load. Please ensure 'final_catboost_modol.cbm' is in the same directory.")
+            st.error("Model file (.cbm) missing.")
         else:
             res = st.session_state.user_responses
             input_df = pd.DataFrame([res])
-            
             for col in input_df.columns:
-                if col != 'Age':
-                    input_df[col] = input_df[col].astype('category')
+                if col != 'Age': input_df[col] = input_df[col].astype('category')
                     
             prediction = model.predict(input_df)[0]
             probability = model.predict_proba(input_df)[0]
-            
             is_positive = str(prediction) == "1" or prediction == 1 or str(prediction).lower() == "positive"
             score = probability[1] if is_positive else probability[0]
             
-            if lang == "বাংলা":
-                verdict_str = "ডায়াবেটিসের ঝুঁকি সনাক্ত হয়েছে" if is_positive else "কোনো তাত্ক্ষণিক ঝুঁকি পাওয়া যায়নি"
-            else:
-                verdict_str = "DIABETES RISK DETECTED" if is_positive else "NO IMMEDIATE RISK DETECTED"
-                
+            verdict_str = ("ডায়াবেটিসের ঝুঁকি সনাক্ত হয়েছে" if is_positive else "কোনো তাত্ক্ষণিক ঝুঁকি পাওয়া যায়নি") if lang == "বাংলা" else ("DIABETES RISK DETECTED" if is_positive else "NO IMMEDIATE RISK DETECTED")
             confidence_str = f"{score * 100:.2f}%"
 
-            # --- Analytics Dashboard ---
             st.subheader("📊 Analytics Summary" if lang == "English" else "📊  অ্যানালিটিক্স সামারি")
             col_res1, col_res2 = st.columns([1, 2])
-            
             with col_res1:
-                if is_positive:
-                    st.error("🚨 DIABETES RISK DETECTED" if lang == "English" else "🚨 ডায়াবেটিসের ঝুঁকি সনাক্ত হয়েছে")
-                else:
-                    st.success("✅ NO IMMEDIATE RISK DETECTED" if lang == "English" else "✅ কোনো তাত্ক্ষণিক ঝুঁকি পাওয়া যায়নি")
-                st.metric(label="Model Confidence" if lang == "English" else "মডেলের নিশ্চিততা", value=confidence_str)
-                
+                if is_positive: st.error("🚨 " + verdict_str)
+                else: st.success("✅ " + verdict_str)
+                st.metric(label="Model Confidence", value=confidence_str)
             with col_res2:
-                st.write("**Risk Probability Meter**" if lang == "English" else "**ঝুঁকির পরিমাপক মিটার**")
+                st.write("**Risk Probability Meter**")
                 st.progress(float(score))
                 
-            # --- Prepare Context for AI Generator ---
             active_symptoms = [k for k, v in res.items() if v == 'Yes']
-            patient_case_context = f"""
-            Patient Name: {st.session_state.patient_name}
-            Patient Profile: {res['Age']} years old, Gender: {res['Gender']}.
-            Reported Symptoms: {', '.join(active_symptoms) if active_symptoms else 'No primary symptoms reported'}.
-            Diagnostic Model Verdict: {'High Risk / Diabetic Profile Match' if is_positive else 'Low Risk / Healthy Profile Match'} with {score * 100:.2f}% confidence.
-            """
+            patient_case_context = f"Patient Name: {st.session_state.patient_name}\nAge: {res['Age']}, Gender: {res['Gender']}\nSymptoms: {', '.join(active_symptoms) if active_symptoms else 'None'}\nVerdict: {verdict_str} ({confidence_str})"
             
-            with st.spinner("🤖 Generative AI Doctor is consulting clinical guidelines..."):
+            with st.spinner("Consulting guidelines..."):
                 agent_report, matched_guidelines = get_rag_agent_response(patient_case_context, lang)
-                
-            with st.spinner("Preparing English Prescription Document..."):
+            with st.spinner("Preparing Document..."):
                 english_prescription_report = get_english_prescription_insights(patient_case_context)
                 
-            st.subheader("🤖 AI Doctor Assessment Report" if lang == "English" else "🤖 এআই ডাক্তার মূল্যায়ন রিপোর্ট")
+            st.subheader("🤖 AI Doctor Assessment Report")
             st.markdown(f'<div class="report-box">{agent_report}</div>', unsafe_allow_html=True)
             
-            # --- LANGUAGE SWITCH WARNING BOX ---
-            warning_text_display = (
-                "⚠️ Warning: This AI Doctor decision is not final. It is a preliminary screening report. Please consult a registered medical practitioner for formal diagnosis and treatment."
-                if lang == "English" else
-                "⚠️ সতর্কবার্তা: এই এআই ডাক্তারের সিদ্ধান্ত চূড়ান্ত নয়। এটি একটি প্রাথমিক স্ক্রিনিং রিপোর্ট মাত্র। চূড়ান্ত সিদ্ধান্ত ও চিকিৎসার জন্য অবশ্যই একজন রেজিস্টার্ড ডাক্তারের পরামর্শ নিন।"
-            )
+            warning_text_display = "⚠️ Warning: Preliminary screening report only. Consult a doctor." if lang == "English" else "⚠️ সতর্কবার্তা: প্রাথমিক স্ক্রিনিং রিপোর্ট মাত্র। ডাক্তারের পরামর্শ নিন।"
             st.markdown(f'<div class="warning-box">{warning_text_display}</div>', unsafe_allow_html=True)
             
-            # --- PDF Action Trigger ---
             st.write(" ")
-            prescription_pdf = generate_prescription_pdf(
-                st.session_state.patient_name, res, verdict_str, confidence_str, english_prescription_report
-            )
-            
-            st.download_button(
-                label="📥 Download Prescription PDF (English Only)" if lang == "English" else "📥 প্রেসক্রিপশন পিডিএফ ডাউনলোড করুন (ইংরেজি সংস্করণ)",
-                data=prescription_pdf,
-                file_name=f"AI_Prescription_{st.session_state.patient_name}.pdf",
-                mime="application/pdf"
-            )
+            prescription_pdf = generate_prescription_pdf(st.session_state.patient_name, res, verdict_str, confidence_str, english_prescription_report)
+            st.download_button(label="📥 Download Prescription PDF", data=prescription_pdf, file_name=f"AI_Prescription_{st.session_state.patient_name}.pdf", mime="application/pdf")
 
-            with st.expander("📖 View Referenced Clinical Guidelines (RAG Source)"):
-                st.markdown(f'<div class="rag-source">{matched_guidelines}</div>', unsafe_allow_html=True)
-                
-        # Restart Evaluation Session
         st.write(" ")
-        if st.button("🔄 Restart Chat Assessment" if lang == "English" else "🔄 নতুন করে পরীক্ষা শুরু করুন"):
+        if st.button("🔄 Restart Assessment"):
             st.session_state.step = -2
             st.session_state.patient_name = ""
             st.session_state.user_responses = {}
             st.session_state.chat_history = []
             st.rerun()
 
-# --- Footer ---
-st.write("---")
-st.caption("© 2026 Early Diabetes AI Prediction Systems | Made by Sumon Ray")
+# --- 🎯 100% BULLETPROOF FIX: FORM এর বাইরে এসে RERUN এক্সিকিউট করা হচ্ছে ---
+if should_rerun:
+    st.rerun()
