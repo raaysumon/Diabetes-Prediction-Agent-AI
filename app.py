@@ -202,7 +202,7 @@ def generate_prescription_pdf(patient_name, patient_data, result_text, confidenc
     buffer.seek(0)
     return buffer
 
-# --- 🎨 Enhanced CSS with Animations (unchanged) ---
+# --- 🎨 Enhanced CSS with Animations ---
 st.markdown("""
 <style>
     @import url('https://fonts.googleapis.com/css2?family=Inter:ital,wght@0,300;0,400;0,600;0,700;1,400&display=swap');
@@ -552,8 +552,10 @@ if st.session_state.step == -2:
     )
     st.markdown(f'<div class="chat-bubble-ai slide-left">🤖 <b>DECat-AI:</b> {welcome_init}</div>', unsafe_allow_html=True)
     
+    # ===== FORM 1: NAME =====
     with st.form(key="form_name_step", clear_on_submit=False):
         name_input = st.text_input("Enter your name..." if lang == "English" else "আপনার নাম লিখুন...", key="name_input_field")
+        # ✅ Submit button for name form
         submit_name = st.form_submit_button("Next ➡️" if lang == "English" else "পরবর্তী ➡️")
         
         if submit_name and name_input.strip():
@@ -573,8 +575,10 @@ if st.session_state.step == -2:
 
 # --- STEP -1: NATURAL CHAT & INTENT TRIGGER ---
 elif st.session_state.step == -1:
+    # ===== FORM 2: CHAT =====
     with st.form(key="form_chat_step", clear_on_submit=True):
         user_msg = st.text_input("Ask me anything or say something..." if lang == "English" else "আমাকে যেকোনো প্রশ্ন করুন বা কিছু বলুন...", key="chat_input_field")
+        # ✅ Submit button for chat form
         submit_chat = st.form_submit_button("Send 💬" if lang == "English" else "পাঠান 💬")
         
         if submit_chat and user_msg.strip():
@@ -629,12 +633,14 @@ elif 0 <= st.session_state.step < len(questions):
     
     st.markdown(f'<div class="chat-bubble-ai slide-left">🤖 <b>DECat-AI:</b> {q_text}</div>', unsafe_allow_html=True)
     
+    # ===== FORM 3: MEDICAL QUESTIONS (each step is a separate form) =====
     with st.form(key=f"form_medical_step_{st.session_state.step}"):
         if "options" in current_q:
             opt_mapping = {"Male": "পুরুষ" if lang == "বাংলা" else "Male", "Female": "নারী" if lang == "বাংলা" else "Female", "Yes": "হ্যাঁ" if lang == "বাংলা" else "Yes", "No": "না" if lang == "বাংলা" else "No"}
             rev_mapping = {v: k for k, v in opt_mapping.items()}
             
             user_choice = st.radio("Choose one:", [opt_mapping[o] for o in current_q["options"]], index=None, label_visibility="collapsed", key=f"med_radio_{st.session_state.step}")
+            # ✅ Submit button for medical radio form
             submit_btn = st.form_submit_button("Next ➡️" if lang == "English" else "পরবর্তী ➡️")
             
             if submit_btn:
@@ -648,6 +654,7 @@ elif 0 <= st.session_state.step < len(questions):
                     st.rerun()
         else:
             user_val = st.number_input("Enter your age:", min_value=1, max_value=120, value=None, placeholder="e.g. 35", label_visibility="collapsed", key=f"med_age_{st.session_state.step}")
+            # ✅ Submit button for age number form
             submit_btn = st.form_submit_button("Next ➡️" if lang == "English" else "পরবর্তী ➡️")
             
             if submit_btn:
@@ -722,7 +729,7 @@ else:
             verdict_str, 
             confidence_str, 
             english_prescription_report,
-            sources  # passing sources to PDF
+            sources
         )
         st.download_button(
             label="📥 Download Prescription PDF",
