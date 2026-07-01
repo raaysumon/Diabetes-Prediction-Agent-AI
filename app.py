@@ -60,7 +60,7 @@ def load_clinical_knowledge_base():
         }
     ]
 
-# --- 4. DYNAMIC AUTOMATED RAG ENGINE (বাগ ফিক্সড ও স্বয়ংক্রিয় করা হয়েছে) ---
+# --- 4. DYNAMIC AUTOMATED RAG ENGINE ---
 def real_rag_retrieval(patient_symptoms_string, similarity_threshold=0.05):
     corpus = load_clinical_knowledge_base()
     documents = [f"{doc['text']} {doc['keywords']}" for doc in corpus]
@@ -73,11 +73,9 @@ def real_rag_retrieval(patient_symptoms_string, similarity_threshold=0.05):
     
     retrieved_chunks = []
     for idx, score in enumerate(similarities):
-        # কোনো নির্দিষ্ট সংখ্যা (top_k) না রেখে ডাইনামিকালি ম্যাচিং স্কোরের ওপর ভিত্তি করে ফাইল রিট্রিভ করা হচ্ছে
         if score >= similarity_threshold:
             retrieved_chunks.append(corpus[idx])
             
-    # যদি কোনো কিছুর সাথেই মিল না পাওয়া যায়, তবে ডিফোল্ট লাইফস্টাইল ও প্রিভেনটিভ গাইডলাইন ব্যাকআপ হিসেবে থাকবে
     if not retrieved_chunks:
         retrieved_chunks = [corpus[3], corpus[4]]
         
@@ -92,6 +90,8 @@ def generate_rag_clinical_assessment(patient_name, prediction_label, confidence,
         
     try:
         client = Groq(api_key=GROQ_API_KEY)
+        
+        # UI Screen-এর রেসপন্স সিলেক্ট করা ভাষা (বাংলা/ইংরেজি) অনুযায়ী ডায়নামিক হবে
         lang_rule = (
             f"Your entire response MUST be written strictly in {language}. "
             f"If {language} is 'English', use conversational yet professional clinical English. "
@@ -133,8 +133,10 @@ def generate_pdf_prescription_insights(patient_context, matched_chunks):
     context_str = "\n".join([c['text'] for c in matched_chunks])
     try:
         client = Groq(api_key=GROQ_API_KEY)
+        # PDF রিপোর্টের ব্যাকএন্ড সামারি সবসময় শুধুমাত্র ইংরেজিতেই প্রসেস হবে
         system_content = (
             "You are a clinical database reporter. Summarize a point-by-point clinical recommendation in English based on the rules. "
+            "Your output MUST be entirely in English. "
             "Structure strictly with these explicit keys without any markdown tags or asterisks: "
             "DIAGNOSTIC ADVICE:, DIETARY MODIFICATIONS:, LIFESTYLE PROTOCOL:. "
             "Never use symbols like >, <, %, $. Write them completely in plain text words."
@@ -172,7 +174,7 @@ def load_screening_model():
 
 model = load_screening_model()
 
-# --- 6. REPORTLAB ENGINE (PDF REPORT GENERATOR) ---
+# --- 6. REPORTLAB ENGINE (PDF REPORT GENERATOR - ALWAYS ENGLISH) ---
 def build_clinical_pdf(patient_name, patient_data, verdict, confidence, english_report, citations):
     buffer = io.BytesIO()
     doc = SimpleDocTemplate(buffer, pagesize=letter, rightMargin=40, leftMargin=40, topMargin=40, bottomMargin=40)
@@ -191,6 +193,7 @@ def build_clinical_pdf(patient_name, patient_data, verdict, confidence, english_
     story.append(Table([[""]], colWidths=[530], rowHeights=[1.5], style=TableStyle([('BACKGROUND', (0,0), (-1,-1), colors.HexColor('#bd2130'))])))
     story.append(Spacer(1, 10))
     
+    # PDF কন্টেন্ট লেবেলগুলো সবসময় ফিক্সড ইংলিশে থাকবে
     story.append(Paragraph("PATIENT CLINICAL DATA LOGS", sec_style))
     table_content = [["Clinical Indicator / Attribute", "Reported Value"], ["Patient Name", str(patient_name)]]
     for key, value in patient_data.items():
@@ -211,9 +214,7 @@ def build_clinical_pdf(patient_name, patient_data, verdict, confidence, english_
     story.append(Spacer(1, 10))
     
     story.append(Paragraph("CATBOOST CLASSIFICATION RISK INFERENCE", sec_style))
-    risk_color = '#bd2130' if "DETECTED" in verdict or "ঝুঁকি" in verdict else '#28a745'
-    verdict_html = f"<font color='{risk_color}'><b>{verdict.upper()}</b></font>"
-    story.append(Paragraph(f"<b>ML Engine Analysis Verdict:</b> {verdict_html}", body_style))
+    story.append(Paragraph(f"<b>ML Engine Analysis Verdict:</b> {verdict.upper()}", body_style))
     story.append(Paragraph(f"<b>Statistical Confidence Interval Score:</b> {confidence}", body_style))
     story.append(Spacer(1, 10))
     
@@ -402,45 +403,65 @@ else:
         calculated_confidence = prediction_probabilities[1] * 100 if has_positive_risk else prediction_probabilities[0] * 100
         formatted_confidence_string = f"{calculated_confidence:.2f} percent"
 
-        if has_positive_risk:
-            verdict_header = "DIABETES RISK DETECTED" if lang_selection == "English" else "ডায়াবেটিস ঝুঁকি সনাক্ত হয়েছে"
-            st.error(f"⚠️ **{verdict_header}** (CatBoost Matrix Confidence Index: {formatted_confidence_string})")
+        # ইন্টারফেস ও পিডিএফ-এর কমন ট্র্যাকিংয়ের জন্য ইংলিশ হেডলাইন জেনারেশন
+        pdf_verdict_header = "DIABETES RISK DETECTED" if has_positive_risk else "NO IMMEDIATE RISK DETECTED"
+
+        if lang_selection == "বাংলা":
+            verdict_header = "ডায়াবেটিস ঝুঁকি সনাক্ত হয়েছে" if has_positive_risk else "কোনো তাৎক্ষণিক ঝুঁকি পাওয়া যায়নি"
+            ui_confidence = f"{calculated_confidence:.2f} শতাংশ"
+            if has_positive_risk:
+                st.error(f"⚠️ **{verdict_header}** (কনফিডেন্স ইনডেক্স Score: {ui_confidence})")
+            else:
+                st.success(f"✅ **{verdict_header}** (কনফিডেন্স ইনডেক্স Score: {ui_confidence})")
         else:
-            verdict_header = "NO IMMEDIATE RISK DETECTED" if lang_selection == "English" else "কোনো তাৎক্ষণিক ঝুঁকি পাওয়া যায়নি"
-            st.success(f"✅ **{verdict_header}** (CatBoost Wellness Index Confidence: {formatted_confidence_string})")
+            verdict_header = pdf_verdict_header
+            if has_positive_risk:
+                st.error(f"⚠️ **{verdict_header}** (CatBoost Matrix Confidence Index: {formatted_confidence_string})")
+            else:
+                st.success(f"✅ **{verdict_header}** (CatBoost Wellness Index Confidence: {formatted_confidence_string})")
 
         symptoms_query_string = ", ".join([f"{k} {v}" for k, v in telemetry_payload.items()])
         
         with st.spinner("Invoking Automated Dynamic Vector Retrieval..."):
-            # এখানে ফিক্সড সংখ্যা তুলে দিয়ে ডাইনামিক ফিল্টারিং চালু করা হয়েছে
             matched_literature = real_rag_retrieval(symptoms_query_string, similarity_threshold=0.05)
             
+            # ১. স্ক্রিনের UI-বক্সের রিপোর্ট যা সাইডবার ল্যাঙ্গুয়েজ (বাংলা/ইংরেজি) অটোমেটিকালি ফলো করবে
             rag_assessment_report, explicit_citations = generate_rag_clinical_assessment(
                 st.session_state.patient_name, verdict_header, formatted_confidence_string, symptoms_query_string, lang_selection, matched_literature
             )
+            
+            # ২. পিডিএফ রিপোর্টের ব্যাকএন্ড ইনসাইট যা সবসময় হার্ডকোডেড শুধুমাত্র ইংরেজিতে থাকবে
             english_pdf_report = generate_pdf_prescription_insights(symptoms_query_string, matched_literature)
             
+        box_title = "📋 RAG Grounded Clinical Action Plan" if lang_selection == "English" else "📋 আরএজি (RAG) ভিত্তিক ক্লিনিক্যাল অ্যাকশন প্ল্যান"
         st.markdown(
-            f'<div class="rag-box"><h4>📋 RAG Grounded Clinical Action Plan</h4><div style="line-height:1.75;">{rag_assessment_report}</div></div>', 
+            f'<div class="rag-box"><h4>{box_title}</h4><div style="line-height:1.75;">{rag_assessment_report}</div></div>', 
             unsafe_allow_html=True
         )
         
-        st.markdown("#### 📚 Verified Evidence Base (Traceable RAG Logs)")
+        evidence_title = "#### 📚 Verified Evidence Base (Traceable RAG Logs)" if lang_selection == "English" else "#### 📚 যাচাইকৃত মেডিকেল প্রমাণপত্র (RAG সাইটেশন)"
+        st.markdown(evidence_title)
         for citation in explicit_citations:
             st.markdown(f'<span class="citation-tag">{citation}</span>', unsafe_allow_html=True)
             
+        # PDF জেনারেটরে ইংরেজি ডাটাগুলো পাস করা হচ্ছে (তাই রিপোর্ট সবসময় পিওর ইংলিশ হবে)
         pdf_binary_stream = build_clinical_pdf(
-            st.session_state.patient_name, telemetry_payload, verdict_header, formatted_confidence_string, english_pdf_report, explicit_citations
+            st.session_state.patient_name, telemetry_payload, pdf_verdict_header, formatted_confidence_string, english_pdf_report, explicit_citations
         )
         
         st.write(" ")
         st.download_button(
-            label="📥 Download Traceable Clinical Report (PDF)",
+            label="📥 Download Traceable Clinical Report (PDF)" if lang_selection == "English" else "📥 ক্লিনিক্যাল রিপোর্ট ডাউনলোড করুন (PDF)",
             data=pdf_binary_stream,
             file_name=f"Clinical_Report_{st.session_state.patient_name}.pdf",
             mime="application/pdf"
         )
         
-        st.markdown("<div class='legal-alert'>⚠️ Regulatory Notice: This ecosystem uses computational machine learning classification and real vector metrics retrieval to cross-reference constraints. It does not issue official hospital treatment paths. Please execute proper clinical laboratory tests with a registered physician.</div>", unsafe_allow_html=True)
+        legal_notice = (
+            "⚠️ Regulatory Notice: This ecosystem uses computational machine learning classification and real vector metrics retrieval to cross-reference constraints. It does not issue official hospital treatment paths. Please execute proper clinical laboratory tests with a registered physician."
+        ) if lang_selection == "English" else (
+            "⚠️ সতর্কীকরণ নোটিশ: এই সিস্টেমটি ডায়াবেটিস স্ক্রীনিংয়ের জন্য কৃত্রিম বুদ্ধিমত্তা ও মেশিন লার্নিং ব্যবহার করে তৈরি। এটি কোনো অফিসিয়াল প্রেসক্রিপশন বা চূড়ান্ত রোগ নির্ণয় নয়। অনুগ্রহ করে একজন নিবন্ধিত ডাক্তারের পরামর্শ নিয়ে ল্যাবরেটরি পরীক্ষা সম্পন্ন করুন।"
+        )
+        st.markdown(f"<div class='legal-alert'>{legal_notice}</div>", unsafe_allow_html=True)
 
 st.markdown('</div>', unsafe_allow_html=True)
