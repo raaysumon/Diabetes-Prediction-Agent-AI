@@ -9,12 +9,14 @@ from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, Tabl
 from reportlab.lib import colors
 from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
 import io
+import time
 
 # --- Page Config ---
 st.set_page_config(
     page_title="Early Diabetes Chatbot AI",
     page_icon="🩸",
-    layout="wide"
+    layout="wide",
+    initial_sidebar_state="collapsed"  # better on mobile
 )
 
 # --- API Key (use st.secrets in production) ---
@@ -171,31 +173,325 @@ def generate_prescription_pdf(patient_name, patient_data, result_text, confidenc
     buffer.seek(0)
     return buffer
 
-# --- 📱 Custom Responsive CSS ---
+# --- 🎨 Enhanced CSS with Animations ---
 st.markdown("""
-    <style>
-    .stApp { background-color: #f4f6f9; }
-    .chat-bubble-ai { 
-        background-color: #ffffff; padding: 12px 16px; border-radius: 14px; 
-        border-left: 5px solid #dc3545; box-shadow: 0 2px 4px rgba(0,0,0,0.04); 
-        margin-bottom: 12px; font-size: calc(14px + 0.15vw); line-height: 1.5; max-width: 100%;
+<style>
+    /* Import Google Font for a modern look */
+    @import url('https://fonts.googleapis.com/css2?family=Inter:ital,wght@0,300;0,400;0,600;0,700;1,400&display=swap');
+
+    html, body, .stApp {
+        font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+        background: linear-gradient(145deg, #f8faff 0%, #eef4fa 100%);
+        min-height: 100vh;
     }
-    .chat-bubble-user { 
-        background-color: #dc3545; color: white; padding: 10px 16px; border-radius: 14px; 
-        text-align: left; margin-bottom: 12px; display: inline-block; float: right; 
-        clear: both; font-size: calc(14px + 0.15vw); max-width: 85%;
+
+    /* Animations */
+    @keyframes fadeInUp {
+        0% { opacity: 0; transform: translateY(20px); }
+        100% { opacity: 1; transform: translateY(0); }
     }
-    .report-box { background-color: #eef2f7; padding: 18px; border-left: 5px solid #0056b3; border-radius: 10px; margin-top: 15px; }
-    .warning-box { background-color: #fff3cd; color: #856404; padding: 14px; border-left: 5px solid #ffc107; border-radius: 8px; margin-top: 15px; font-weight: bold;}
-    .rag-source { background-color: #e2e3e5; padding: 12px; border-radius: 6px; font-size: 12px; font-family: monospace; }
-    div[data-testid="stForm"] { border: none !important; padding: 0 !important; }
-    div.stDownloadButton button { width: 100% !important; }
-    </style>
-    """, unsafe_allow_html=True)
+    @keyframes pulseGlow {
+        0% { box-shadow: 0 0 0 0 rgba(220, 53, 69, 0.4); }
+        70% { box-shadow: 0 0 0 12px rgba(220, 53, 69, 0); }
+        100% { box-shadow: 0 0 0 0 rgba(220, 53, 69, 0); }
+    }
+    @keyframes slideInLeft {
+        0% { opacity: 0; transform: translateX(-20px); }
+        100% { opacity: 1; transform: translateX(0); }
+    }
+    @keyframes slideInRight {
+        0% { opacity: 0; transform: translateX(20px); }
+        100% { opacity: 1; transform: translateX(0); }
+    }
+
+    .fade-in {
+        animation: fadeInUp 0.5s ease-out forwards;
+    }
+    .slide-left {
+        animation: slideInLeft 0.4s ease-out forwards;
+    }
+    .slide-right {
+        animation: slideInRight 0.4s ease-out forwards;
+    }
+    .pulse-glow {
+        animation: pulseGlow 2s infinite;
+    }
+
+    /* Custom container */
+    .main-container {
+        max-width: 800px;
+        margin: 0 auto;
+        padding: 1rem;
+    }
+
+    /* Title and header */
+    .app-title {
+        font-size: 2.2rem;
+        font-weight: 700;
+        background: linear-gradient(135deg, #0b3954, #1e6f9f);
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+        display: inline-block;
+        letter-spacing: -0.5px;
+        margin-bottom: 0.2rem;
+    }
+    .app-subtitle {
+        font-size: 1rem;
+        color: #2c3e50;
+        opacity: 0.8;
+        font-weight: 400;
+    }
+
+    /* Chat bubbles */
+    .chat-bubble-ai {
+        background: #ffffff;
+        padding: 14px 20px;
+        border-radius: 18px 18px 18px 4px;
+        border-left: 5px solid #dc3545;
+        box-shadow: 0 4px 12px rgba(0,0,0,0.04);
+        margin-bottom: 16px;
+        font-size: calc(15px + 0.1vw);
+        line-height: 1.6;
+        max-width: 100%;
+        transition: all 0.2s ease;
+        animation: fadeInUp 0.4s ease-out;
+    }
+    .chat-bubble-ai:hover {
+        box-shadow: 0 6px 18px rgba(0,0,0,0.08);
+    }
+
+    .chat-bubble-user {
+        background: linear-gradient(135deg, #dc3545, #c82333);
+        color: white;
+        padding: 12px 18px;
+        border-radius: 18px 18px 4px 18px;
+        text-align: left;
+        margin-bottom: 16px;
+        display: inline-block;
+        float: right;
+        clear: both;
+        font-size: calc(15px + 0.1vw);
+        max-width: 85%;
+        box-shadow: 0 4px 12px rgba(220, 53, 69, 0.25);
+        animation: slideInRight 0.4s ease-out;
+        transition: all 0.2s ease;
+    }
+
+    /* Form elements */
+    .stForm {
+        background: rgba(255,255,255,0.7);
+        backdrop-filter: blur(10px);
+        padding: 1.5rem !important;
+        border-radius: 24px !important;
+        box-shadow: 0 8px 24px rgba(0,0,0,0.04);
+        border: 1px solid rgba(255,255,255,0.5);
+        transition: all 0.3s ease;
+    }
+    .stForm:hover {
+        box-shadow: 0 12px 36px rgba(0,0,0,0.06);
+    }
+
+    .stButton > button {
+        background: linear-gradient(135deg, #1e6f9f, #0b3954);
+        color: white;
+        border: none;
+        border-radius: 50px;
+        padding: 0.6rem 2rem;
+        font-weight: 600;
+        font-size: 1rem;
+        transition: all 0.25s ease;
+        box-shadow: 0 4px 12px rgba(27, 94, 140, 0.3);
+        width: 100%;
+    }
+    .stButton > button:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 8px 20px rgba(27, 94, 140, 0.4);
+        background: linear-gradient(135deg, #1a5f85, #082b3f);
+    }
+    .stButton > button:active {
+        transform: scale(0.97);
+    }
+
+    /* Radio buttons */
+    .stRadio > div {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 0.75rem;
+        justify-content: center;
+    }
+    .stRadio label {
+        background: #f0f4f9;
+        padding: 0.6rem 1.2rem;
+        border-radius: 40px;
+        font-weight: 500;
+        color: #1e2a3a;
+        transition: all 0.2s ease;
+        border: 2px solid transparent;
+        cursor: pointer;
+        box-shadow: 0 2px 8px rgba(0,0,0,0.02);
+    }
+    .stRadio label:hover {
+        background: #e2eaf2;
+        border-color: #b0c4d9;
+    }
+    .stRadio [data-testid="stRadio"] > label[data-selected="true"] {
+        background: linear-gradient(135deg, #1e6f9f, #0b3954);
+        color: white;
+        border-color: #0b3954;
+        box-shadow: 0 4px 14px rgba(27, 94, 140, 0.35);
+    }
+
+    /* Number input */
+    .stNumberInput input {
+        border-radius: 30px !important;
+        border: 2px solid #dce5ed !important;
+        padding: 0.6rem 1rem !important;
+        font-size: 1rem !important;
+        transition: border-color 0.3s ease;
+    }
+    .stNumberInput input:focus {
+        border-color: #1e6f9f !important;
+        box-shadow: 0 0 0 3px rgba(30, 111, 159, 0.2);
+    }
+
+    /* Sidebar */
+    .css-1d391kg {
+        background: #ffffffd9;
+        backdrop-filter: blur(12px);
+        border-right: 1px solid rgba(0,0,0,0.05);
+    }
+    .sidebar-content {
+        padding: 1rem 0.5rem;
+    }
+
+    /* Progress bar */
+    .stProgress > div > div {
+        background: linear-gradient(90deg, #0b3954, #1e6f9f) !important;
+        border-radius: 30px;
+    }
+
+    /* Metric cards */
+    .metric-card {
+        background: white;
+        border-radius: 20px;
+        padding: 1rem 1.2rem;
+        box-shadow: 0 6px 18px rgba(0,0,0,0.03);
+        transition: all 0.3s ease;
+        border: 1px solid rgba(0,0,0,0.02);
+    }
+    .metric-card:hover {
+        transform: translateY(-3px);
+        box-shadow: 0 12px 28px rgba(0,0,0,0.06);
+    }
+
+    /* Report boxes */
+    .report-box {
+        background: white;
+        padding: 1.8rem;
+        border-radius: 24px;
+        border-left: 6px solid #1e6f9f;
+        box-shadow: 0 8px 24px rgba(0,0,0,0.03);
+        font-size: 0.95rem;
+        line-height: 1.7;
+        animation: fadeInUp 0.6s ease-out;
+    }
+
+    .warning-box {
+        background: #fff9e6;
+        color: #8a6d3b;
+        padding: 1rem 1.5rem;
+        border-radius: 16px;
+        border-left: 6px solid #ffc107;
+        font-weight: 600;
+        box-shadow: 0 4px 12px rgba(255, 193, 7, 0.15);
+        animation: pulseGlow 2.5s infinite;
+    }
+
+    .rag-source {
+        background: #f0f3f8;
+        padding: 0.8rem 1.2rem;
+        border-radius: 12px;
+        font-size: 0.8rem;
+        font-family: 'Courier New', monospace;
+        color: #2c3e50;
+        border: 1px solid #dce5ed;
+        overflow-x: auto;
+    }
+
+    /* Download button */
+    .stDownloadButton button {
+        background: linear-gradient(135deg, #28a745, #1e7e34) !important;
+        box-shadow: 0 4px 14px rgba(40, 167, 69, 0.3);
+        border-radius: 50px;
+        padding: 0.7rem 1.5rem;
+        font-weight: 600;
+        transition: all 0.25s ease;
+    }
+    .stDownloadButton button:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 8px 24px rgba(40, 167, 69, 0.4);
+        background: linear-gradient(135deg, #218838, #155d27) !important;
+    }
+
+    /* Responsive tweaks */
+    @media (max-width: 640px) {
+        .app-title {
+            font-size: 1.6rem;
+        }
+        .chat-bubble-ai, .chat-bubble-user {
+            font-size: 14px;
+            padding: 10px 14px;
+        }
+        .stForm {
+            padding: 1rem !important;
+        }
+        .stButton > button {
+            font-size: 0.9rem;
+            padding: 0.5rem 1.2rem;
+        }
+        .main-container {
+            padding: 0.5rem;
+        }
+        .stRadio label {
+            padding: 0.4rem 1rem;
+            font-size: 0.9rem;
+        }
+    }
+
+    /* Scroll bar styling */
+    ::-webkit-scrollbar {
+        width: 6px;
+        height: 6px;
+    }
+    ::-webkit-scrollbar-track {
+        background: #eef2f7;
+        border-radius: 10px;
+    }
+    ::-webkit-scrollbar-thumb {
+        background: #b0c4d9;
+        border-radius: 10px;
+    }
+    ::-webkit-scrollbar-thumb:hover {
+        background: #8aa0b9;
+    }
+
+    /* Hide default streamlit elements */
+    #MainMenu {visibility: hidden;}
+    footer {visibility: hidden;}
+    .stDeployButton {display: none;}
+</style>
+""", unsafe_allow_html=True)
 
 # --- Language Selection Sidebar ---
-st.sidebar.title("🌐 Language / ভাষা")
-lang = st.sidebar.radio("Select Chat Language", ["English", "বাংলা"], index=0)
+with st.sidebar:
+    st.markdown('<div class="sidebar-content">', unsafe_allow_html=True)
+    st.image("https://img.icons8.com/fluency/96/000000/doctor.png", width=80)  # Optional: replace with your own logo
+    st.markdown("## 🌐 Language / ভাষা")
+    lang = st.radio("Select Chat Language", ["English", "বাংলা"], index=0, label_visibility="collapsed")
+    st.markdown("---")
+    st.caption("🩸 Early Diabetes Screening Assistant")
+    st.caption("Powered by AI • Clinical Guidelines • CatBoost")
+    st.markdown('</div>', unsafe_allow_html=True)
 
 # --- Questions Definition ---
 questions = [
@@ -219,7 +515,7 @@ if "user_responses" not in st.session_state:
 if "chat_history" not in st.session_state:
     st.session_state.chat_history = []
 
-# --- Helper to add chat message and rerun ---
+# --- Helper functions ---
 def add_chat(role, text):
     st.session_state.chat_history.append({"role": role, "text": text})
 
@@ -228,195 +524,205 @@ def transition_to(new_step):
     st.rerun()
 
 # --- Main App Render ---
-st.title("🩸 Early Diabetes Conversational AI Agent" if lang == "English" else "🩸 ডায়াবেটিস চ্যাটবট এআই充জেন্ট")
+st.markdown('<div class="main-container">', unsafe_allow_html=True)
+
+# Title with animation
+st.markdown("""
+    <div class="fade-in">
+        <span class="app-title">🩸 DECat‑AI</span>
+        <p class="app-subtitle">Early Diabetes Screening • Intelligent Clinical Support</p>
+    </div>
+""", unsafe_allow_html=True)
 st.markdown("---")
 
-with st.container():
-    # Render Chat History
+# Chat history container
+chat_container = st.container()
+with chat_container:
     for chat in st.session_state.chat_history:
         if chat.get("role") == "ai":
             st.markdown(f'<div class="chat-bubble-ai">🤖 <b>DECat-AI:</b> {chat.get("text", "")}</div>', unsafe_allow_html=True)
         elif chat.get("role") == "user":
             st.markdown(f'<div style="width:100%; overflow:auto;"><div class="chat-bubble-user">👤 {chat.get("text", "")}</div></div>', unsafe_allow_html=True)
 
-    # --- STEP -2: ASK FOR PATIENT NAME ---
-    if st.session_state.step == -2:
-        welcome_init = (
-            "Hello! Welcome to our Early Diabetes Screening Desk. I am your AI Doctor, DECat-AI. Before we begin, may I know your name please?"
-            if lang == "English" else
-            "হ্যালো! আমাদের আর্লি ডায়াবেটিস স্ক্রিনিং ডেস্কে আপনাকে স্বাগত। আমি আপনার এআই ডাক্তার, DECat-AI। আমাদের পরীক্ষা শুরু করার আগে, আমি কি আপনার নামটা জানতে পারি?"
-        )
-        st.markdown(f'<div class="chat-bubble-ai">🤖 <b>DECat-AI:</b> {welcome_init}</div>', unsafe_allow_html=True)
+# --- STEP -2: ASK FOR PATIENT NAME ---
+if st.session_state.step == -2:
+    welcome_init = (
+        "Hello! Welcome to our Early Diabetes Screening Desk. I am your AI Doctor, DECat-AI. Before we begin, may I know your name please?"
+        if lang == "English" else
+        "হ্যালো! আমাদের আর্লি ডায়াবেটিস স্ক্রিনিং ডেস্কে আপনাকে স্বাগত। আমি আপনার এআই ডাক্তার, DECat-AI। আমাদের পরীক্ষা শুরু করার আগে, আমি কি আপনার নামটা জানতে পারি?"
+    )
+    st.markdown(f'<div class="chat-bubble-ai slide-left">🤖 <b>DECat-AI:</b> {welcome_init}</div>', unsafe_allow_html=True)
+    
+    with st.form(key="form_name_step", clear_on_submit=False):
+        name_input = st.text_input("Enter your name..." if lang == "English" else "আপনার নাম লিখুন...", key="name_input_field")
+        submit_name = st.form_submit_button("Next ➡️" if lang == "English" else "পরবর্তী ➡️")
         
-        with st.form(key="form_name_step"):
-            name_input = st.text_input("Enter your name..." if lang == "English" else "আপনার নাম লিখুন...", key="name_input_field")
-            submit_name = st.form_submit_button("Next ➡️" if lang == "English" else "পরবর্তী ➡️")
+        if submit_name and name_input.strip():
+            st.session_state.patient_name = name_input.strip()
+            add_chat("ai", welcome_init)
+            add_chat("user", name_input.strip())
             
-            if submit_name and name_input.strip():
-                st.session_state.patient_name = name_input.strip()
-                add_chat("ai", welcome_init)
-                add_chat("user", name_input.strip())
-                
-                welcome_back = (
-                    f"Nice to meet you, {st.session_state.patient_name}! I am DECat-AI. How are you doing today? Do you have any health concerns? "
-                    f"By the way, can I start your early diabetes screening test now?"
-                    if lang == "English" else
-                    f"আপনার সাথে পরিচিত হয়ে ভালো লাগলো, {st.session_state.patient_name}! আমি DECat-AI। আজ আপনি কেমন আছেন? আপনার কি কোনো স্বাস্থ্য সমস্যা হচ্ছে? "
-                    f"ভালো কথা, আমি কি আপনার ডায়াবেটিস স্ক্রিনিং টেস্টটি এখন শুরু করতে পারি?"
-                )
-                add_chat("ai", welcome_back)
-                transition_to(-1)
-
-    # --- STEP -1: NATURAL CHAT & SEAMLESS AUTOMATIC INTENT TRIGGER ---
-    elif st.session_state.step == -1:
-        with st.form(key="form_chat_step", clear_on_submit=True):
-            user_msg = st.text_input("Ask me anything or say something..." if lang == "English" else "আমাকে যেকোনো প্রশ্ন করুন বা কিছু বলুন...", key="chat_input_field")
-            submit_chat = st.form_submit_button("Send 💬" if lang == "English" else "পাঠান 💬")
-            
-            if submit_chat and user_msg.strip():
-                add_chat("user", user_msg.strip())
-                
-                # Check if user wants to start the test
-                positive_keywords = [
-                    "ha", "haa", "hay", "hoy", "yes", "y", "ok", "okay", "sure", "start", "go", "test", 
-                    "হ্যাঁ", "হ্যা", "হুম", "করুন", "করো", "শুরু", "ঠিক আছে", "চলুন", "হবে"
-                ]
-                if any(kw in user_msg.strip().lower() for kw in positive_keywords):
-                    # AI acknowledges and moves to questionnaire
-                    ack = (
-                        "Great! Let's begin the screening. I'll ask you a few questions about your health."
-                        if lang == "English" else
-                        "চমৎকার! তাহলে স্ক্রিনিং শুরু করা যাক। আমি আপনাকে আপনার স্বাস্থ্য সম্পর্কে কয়েকটি প্রশ্ন করব।"
-                    )
-                    add_chat("ai", ack)
-                    transition_to(0)
-                else:
-                    with st.spinner("Thinking..."):
-                        try:
-                            client = Groq(api_key=GROQ_API_KEY)
-                            chat_context = [
-                                {
-                                    "role": "system", 
-                                    "content": (
-                                        f"You are DECat-AI, a warm, natural and empathetic AI Doctor talking to {st.session_state.patient_name}. "
-                                        f"Answer their questions or chats conversationally and concisely in {lang}. "
-                                        f"At the end of your response, you MUST always ask them elegantly whether you can start the diabetes test now."
-                                    )
-                                }
-                            ]
-                            for h in st.session_state.chat_history[-6:]:
-                                chat_context.append({"role": "user" if h["role"] == "user" else "assistant", "content": h["text"]})
-                                
-                            reply = client.chat.completions.create(
-                                model="llama-3.3-70b-versatile",
-                                messages=chat_context,
-                                temperature=0.6,
-                                max_tokens=250
-                            )
-                            ai_reply = reply.choices[0].message.content
-                        except Exception:
-                            ai_reply = "I see. Shall we start your early diabetes risk test now?" if lang == "English" else "বুঝতে পারলাম। আমরা কি এখন আপনার ডায়াবেটিস পরীক্ষাটি শুরু করতে পারি?"
-                    
-                    add_chat("ai", ai_reply)
-                    st.rerun()  # Rerun to show the new messages
-
-    # --- 📋 STEP 0 to N: MEDICAL QUESTIONNAIRE ---
-    elif 0 <= st.session_state.step < len(questions):
-        current_q = questions[st.session_state.step]
-        q_text = current_q["bn"] if lang == "বাংলা" else current_q["en"]
-        
-        st.markdown(f'<div class="chat-bubble-ai">🤖 <b>DECat-AI:</b> {q_text}</div>', unsafe_allow_html=True)
-        
-        with st.form(key=f"form_medical_step_{st.session_state.step}"):
-            if "options" in current_q:
-                opt_mapping = {"Male": "পুরুষ" if lang == "বাংলা" else "Male", "Female": "নারী" if lang == "বাংলা" else "Female", "Yes": "হ্যাঁ" if lang == "বাংলা" else "Yes", "No": "না" if lang == "বাংলা" else "No"}
-                rev_mapping = {v: k for k, v in opt_mapping.items()}
-                
-                user_choice = st.radio("Choose one:", [opt_mapping[o] for o in current_q["options"]], index=None, label_visibility="collapsed", key=f"med_radio_{st.session_state.step}")
-                submit_btn = st.form_submit_button("Next ➡️" if lang == "English" else "পরবর্তী ➡️")
-                
-                if submit_btn:
-                    if user_choice is None:
-                        st.error("Please select an option!" if lang == "English" else "দয়া করে একটি অপশন সিলেক্ট করুন!")
-                    else:
-                        st.session_state.user_responses[current_q["field"]] = rev_mapping[user_choice]
-                        add_chat("ai", q_text)
-                        add_chat("user", user_choice)
-                        st.session_state.step += 1
-                        st.rerun()
-            else:
-                user_val = st.number_input("Enter your age:", min_value=1, max_value=120, value=None, placeholder="e.g. 35", label_visibility="collapsed", key=f"med_age_{st.session_state.step}")
-                submit_btn = st.form_submit_button("Next ➡️" if lang == "English" else "পরবর্তী ➡️")
-                
-                if submit_btn:
-                    if user_val is None:
-                        st.error("Please enter your age!" if lang == "English" else "দয়া করে আপনার বয়স লিখুন!")
-                    else:
-                        st.session_state.user_responses[current_q["field"]] = int(user_val)
-                        add_chat("ai", q_text)
-                        add_chat("user", str(int(user_val)))
-                        st.session_state.step += 1
-                        st.rerun()
-
-    # --- 📊 FINAL EVALUATION & REPORT RENDERING ---
-    else:
-        st.write("---")
-        if model is None:
-            st.error("Model file (.cbm) missing. Cannot proceed with risk assessment.")
-        else:
-            res = st.session_state.user_responses
-            input_df = pd.DataFrame([res])
-            for col in input_df.columns:
-                if col != 'Age':
-                    input_df[col] = input_df[col].astype('category')
-                    
-            prediction = model.predict(input_df)[0]
-            probability = model.predict_proba(input_df)[0]
-            is_positive = str(prediction) == "1" or prediction == 1 or str(prediction).lower() == "positive"
-            score = probability[1] if is_positive else probability[0]
-            
-            verdict_str = ("ডায়াবেটিসের ঝুঁকি সনাক্ত হয়েছে" if is_positive else "কোনো তাত্ক্ষণিক ঝুঁকি পাওয়া যায়নি") if lang == "বাংলা" else ("DIABETES RISK DETECTED" if is_positive else "NO IMMEDIATE RISK DETECTED")
-            confidence_str = f"{score * 100:.2f}%"
-
-            st.subheader("📊 Analytics Summary" if lang == "English" else "📊  অ্যানালিটিক্স সামারি")
-            col_res1, col_res2 = st.columns([1, 2])
-            with col_res1:
-                if is_positive:
-                    st.error("🚨 " + verdict_str)
-                else:
-                    st.success("✅ " + verdict_str)
-                st.metric(label="Model Confidence", value=confidence_str)
-            with col_res2:
-                st.write("**Risk Probability Meter**")
-                st.progress(float(score))
-                
-            active_symptoms = [k for k, v in res.items() if v == 'Yes']
-            patient_case_context = f"Patient Name: {st.session_state.patient_name}\nAge: {res['Age']}, Gender: {res['Gender']}\nSymptoms: {', '.join(active_symptoms) if active_symptoms else 'None'}\nVerdict: {verdict_str} ({confidence_str})"
-            
-            with st.spinner("Consulting guidelines..."):
-                agent_report, _ = get_rag_agent_response(patient_case_context, lang)
-            with st.spinner("Preparing Document..."):
-                english_prescription_report = get_english_prescription_insights(patient_case_context)
-                
-            st.subheader("🤖 AI Doctor Assessment Report")
-            st.markdown(f'<div class="report-box">{agent_report}</div>', unsafe_allow_html=True)
-            
-            warning_text_display = "⚠️ Warning: Preliminary screening report only. Consult a doctor." if lang == "English" else "⚠️ সতর্কবার্তা: প্রাথমিক স্ক্রিনিং রিপোর্ট মাত্র। ডাক্তারের পরামর্শ নিন।"
-            st.markdown(f'<div class="warning-box">{warning_text_display}</div>', unsafe_allow_html=True)
-            
-            st.write(" ")
-            prescription_pdf = generate_prescription_pdf(st.session_state.patient_name, res, verdict_str, confidence_str, english_prescription_report)
-            st.download_button(
-                label="📥 Download Prescription PDF",
-                data=prescription_pdf,
-                file_name=f"AI_Prescription_{st.session_state.patient_name}.pdf",
-                mime="application/pdf"
+            welcome_back = (
+                f"Nice to meet you, {st.session_state.patient_name}! I am DECat-AI. How are you doing today? Do you have any health concerns? "
+                f"By the way, can I start your early diabetes screening test now?"
+                if lang == "English" else
+                f"আপনার সাথে পরিচিত হয়ে ভালো লাগলো, {st.session_state.patient_name}! আমি DECat-AI। আজ আপনি কেমন আছেন? আপনার কি কোনো স্বাস্থ্য সমস্যা হচ্ছে? "
+                f"ভালো কথা, আমি কি আপনার ডায়াবেটিস স্ক্রিনিং টেস্টটি এখন শুরু করতে পারি?"
             )
+            add_chat("ai", welcome_back)
+            transition_to(-1)
 
+# --- STEP -1: NATURAL CHAT & INTENT TRIGGER ---
+elif st.session_state.step == -1:
+    with st.form(key="form_chat_step", clear_on_submit=True):
+        user_msg = st.text_input("Ask me anything or say something..." if lang == "English" else "আমাকে যেকোনো প্রশ্ন করুন বা কিছু বলুন...", key="chat_input_field")
+        submit_chat = st.form_submit_button("Send 💬" if lang == "English" else "পাঠান 💬")
+        
+        if submit_chat and user_msg.strip():
+            add_chat("user", user_msg.strip())
+            
+            positive_keywords = [
+                "ha", "haa", "hay", "hoy", "yes", "y", "ok", "okay", "sure", "start", "go", "test", 
+                "হ্যাঁ", "হ্যা", "হুম", "করুন", "করো", "শুরু", "ঠিক আছে", "চলুন", "হবে"
+            ]
+            if any(kw in user_msg.strip().lower() for kw in positive_keywords):
+                ack = (
+                    "Great! Let's begin the screening. I'll ask you a few questions about your health."
+                    if lang == "English" else
+                    "চমৎকার! তাহলে স্ক্রিনিং শুরু করা যাক। আমি আপনাকে আপনার স্বাস্থ্য সম্পর্কে কয়েকটি প্রশ্ন করব।"
+                )
+                add_chat("ai", ack)
+                transition_to(0)
+            else:
+                with st.spinner("🤔 Thinking..."):
+                    try:
+                        client = Groq(api_key=GROQ_API_KEY)
+                        chat_context = [
+                            {
+                                "role": "system", 
+                                "content": (
+                                    f"You are DECat-AI, a warm, natural and empathetic AI Doctor talking to {st.session_state.patient_name}. "
+                                    f"Answer their questions or chats conversationally and concisely in {lang}. "
+                                    f"At the end of your response, you MUST always ask them elegantly whether you can start the diabetes test now."
+                                )
+                            }
+                        ]
+                        for h in st.session_state.chat_history[-6:]:
+                            chat_context.append({"role": "user" if h["role"] == "user" else "assistant", "content": h["text"]})
+                            
+                        reply = client.chat.completions.create(
+                            model="llama-3.3-70b-versatile",
+                            messages=chat_context,
+                            temperature=0.6,
+                            max_tokens=250
+                        )
+                        ai_reply = reply.choices[0].message.content
+                    except Exception:
+                        ai_reply = "I see. Shall we start your early diabetes risk test now?" if lang == "English" else "বুঝতে পারলাম। আমরা কি এখন আপনার ডায়াবেটিস পরীক্ষাটি শুরু করতে পারি?"
+                
+                add_chat("ai", ai_reply)
+                st.rerun()
+
+# --- 📋 STEP 0 to N: MEDICAL QUESTIONNAIRE ---
+elif 0 <= st.session_state.step < len(questions):
+    current_q = questions[st.session_state.step]
+    q_text = current_q["bn"] if lang == "বাংলা" else current_q["en"]
+    
+    st.markdown(f'<div class="chat-bubble-ai slide-left">🤖 <b>DECat-AI:</b> {q_text}</div>', unsafe_allow_html=True)
+    
+    with st.form(key=f"form_medical_step_{st.session_state.step}"):
+        if "options" in current_q:
+            opt_mapping = {"Male": "পুরুষ" if lang == "বাংলা" else "Male", "Female": "নারী" if lang == "বাংলা" else "Female", "Yes": "হ্যাঁ" if lang == "বাংলা" else "Yes", "No": "না" if lang == "বাংলা" else "No"}
+            rev_mapping = {v: k for k, v in opt_mapping.items()}
+            
+            user_choice = st.radio("Choose one:", [opt_mapping[o] for o in current_q["options"]], index=None, label_visibility="collapsed", key=f"med_radio_{st.session_state.step}")
+            submit_btn = st.form_submit_button("Next ➡️" if lang == "English" else "পরবর্তী ➡️")
+            
+            if submit_btn:
+                if user_choice is None:
+                    st.error("Please select an option!" if lang == "English" else "দয়া করে একটি অপশন সিলেক্ট করুন!")
+                else:
+                    st.session_state.user_responses[current_q["field"]] = rev_mapping[user_choice]
+                    add_chat("ai", q_text)
+                    add_chat("user", user_choice)
+                    st.session_state.step += 1
+                    st.rerun()
+        else:
+            user_val = st.number_input("Enter your age:", min_value=1, max_value=120, value=None, placeholder="e.g. 35", label_visibility="collapsed", key=f"med_age_{st.session_state.step}")
+            submit_btn = st.form_submit_button("Next ➡️" if lang == "English" else "পরবর্তী ➡️")
+            
+            if submit_btn:
+                if user_val is None:
+                    st.error("Please enter your age!" if lang == "English" else "দয়া করে আপনার বয়স লিখুন!")
+                else:
+                    st.session_state.user_responses[current_q["field"]] = int(user_val)
+                    add_chat("ai", q_text)
+                    add_chat("user", str(int(user_val)))
+                    st.session_state.step += 1
+                    st.rerun()
+
+# --- 📊 FINAL EVALUATION & REPORT ---
+else:
+    st.write("---")
+    if model is None:
+        st.error("❌ Model file (.cbm) missing. Cannot proceed with risk assessment.")
+    else:
+        res = st.session_state.user_responses
+        input_df = pd.DataFrame([res])
+        for col in input_df.columns:
+            if col != 'Age':
+                input_df[col] = input_df[col].astype('category')
+                
+        prediction = model.predict(input_df)[0]
+        probability = model.predict_proba(input_df)[0]
+        is_positive = str(prediction) == "1" or prediction == 1 or str(prediction).lower() == "positive"
+        score = probability[1] if is_positive else probability[0]
+        
+        verdict_str = ("ডায়াবেটিসের ঝুঁকি সনাক্ত হয়েছে" if is_positive else "কোনো তাত্ক্ষণিক ঝুঁকি পাওয়া যায়নি") if lang == "বাংলা" else ("DIABETES RISK DETECTED" if is_positive else "NO IMMEDIATE RISK DETECTED")
+        confidence_str = f"{score * 100:.2f}%"
+
+        st.markdown("## 📊 Analytics Summary")
+        
+        col_res1, col_res2 = st.columns([1, 2])
+        with col_res1:
+            if is_positive:
+                st.markdown(f'<div class="metric-card" style="border-left: 6px solid #dc3545;"><h3 style="color:#dc3545;">🚨 {verdict_str}</h3></div>', unsafe_allow_html=True)
+            else:
+                st.markdown(f'<div class="metric-card" style="border-left: 6px solid #28a745;"><h3 style="color:#28a745;">✅ {verdict_str}</h3></div>', unsafe_allow_html=True)
+            st.metric(label="Model Confidence", value=confidence_str)
+        with col_res2:
+            st.write("**Risk Probability Meter**")
+            st.progress(float(score))
+            
+        active_symptoms = [k for k, v in res.items() if v == 'Yes']
+        patient_case_context = f"Patient Name: {st.session_state.patient_name}\nAge: {res['Age']}, Gender: {res['Gender']}\nSymptoms: {', '.join(active_symptoms) if active_symptoms else 'None'}\nVerdict: {verdict_str} ({confidence_str})"
+        
+        with st.spinner("🩺 Consulting clinical guidelines..."):
+            agent_report, _ = get_rag_agent_response(patient_case_context, lang)
+        with st.spinner("📄 Preparing your prescription document..."):
+            english_prescription_report = get_english_prescription_insights(patient_case_context)
+            
+        st.markdown("## 🤖 AI Doctor Assessment Report")
+        st.markdown(f'<div class="report-box">{agent_report}</div>', unsafe_allow_html=True)
+        
+        warning_text_display = "⚠️ Warning: Preliminary screening report only. Consult a doctor." if lang == "English" else "⚠️ সতর্কবার্তা: প্রাথমিক স্ক্রিনিং রিপোর্ট মাত্র। ডাক্তারের পরামর্শ নিন।"
+        st.markdown(f'<div class="warning-box">{warning_text_display}</div>', unsafe_allow_html=True)
+        
         st.write(" ")
-        if st.button("🔄 Restart Assessment"):
-            st.session_state.step = -2
-            st.session_state.patient_name = ""
-            st.session_state.user_responses = {}
-            st.session_state.chat_history = []
-            st.rerun()
+        prescription_pdf = generate_prescription_pdf(st.session_state.patient_name, res, verdict_str, confidence_str, english_prescription_report)
+        st.download_button(
+            label="📥 Download Prescription PDF",
+            data=prescription_pdf,
+            file_name=f"AI_Prescription_{st.session_state.patient_name}.pdf",
+            mime="application/pdf"
+        )
+
+    st.write(" ")
+    if st.button("🔄 Restart Assessment"):
+        st.session_state.step = -2
+        st.session_state.patient_name = ""
+        st.session_state.user_responses = {}
+        st.session_state.chat_history = []
+        st.rerun()
+
+st.markdown('</div>', unsafe_allow_html=True)
