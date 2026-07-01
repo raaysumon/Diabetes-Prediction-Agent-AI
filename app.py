@@ -68,17 +68,30 @@ def get_rag_agent_response(patient_context, language):
             f"Write them in plain text words if necessary (e.g., in English write 'greater than 6.5 percent', or in Bengali write '৬.৫ শতাংশের বেশি')."
         )
         completion = client.chat.completions.create(
-            model="llama-3.3-70b-versatile",
+            model="llama-3.1-8b-instant",   # smaller model, lower token cost
             messages=[
                 {"role": "system", "content": system_content},
                 {"role": "user", "content": f"Clinical Guidelines Reference:\n{context_source}\n\nPatient Case Profile:\n{patient_context}"}
             ],
             temperature=0.2,
-            max_tokens=1000,
+            max_tokens=600,                 # reduced
         )
         return completion.choices[0].message.content, guidelines_sources
     except Exception as e:
-        return f"Error generating Agent insights: {e}", guidelines_sources
+        error_str = str(e)
+        if "429" in error_str or "rate_limit" in error_str.lower():
+            # try to extract wait time from error message
+            import re
+            match = re.search(r"try again in (\d+)m(\d+\.?\d*)s", error_str)
+            if match:
+                minutes = int(match.group(1))
+                seconds = float(match.group(2))
+                wait_msg = f"⚠️ **Rate limit exceeded.** Please wait **{minutes} minute{'s' if minutes!=1 else ''} and {int(seconds)} second{'s' if int(seconds)!=1 else ''}** before trying again. You may also upgrade your Groq plan for higher limits."
+            else:
+                wait_msg = "⚠️ **Rate limit exceeded.** Please wait a few minutes and try again, or upgrade your Groq plan."
+            return wait_msg, guidelines_sources
+        else:
+            return f"Error generating Agent insights: {e}", guidelines_sources
 
 def get_english_prescription_insights(patient_context):
     context_source = "\n".join(guidelines_texts)
@@ -92,17 +105,21 @@ def get_english_prescription_insights(patient_context):
             "STRICT RULE: Never use mathematical symbols like greater than, less than, percentage signs, dollar signs, or brackets. Write them as plain words (e.g., 'percent', 'greater than')."
         )
         completion = client.chat.completions.create(
-            model="llama-3.3-70b-versatile",
+            model="llama-3.1-8b-instant",   # smaller model
             messages=[
                 {"role": "system", "content": system_content},
                 {"role": "user", "content": f"Clinical Guidelines Reference:\n{context_source}\n\nPatient Case Profile:\n{patient_context}"}
             ],
             temperature=0.1,
-            max_tokens=500,
+            max_tokens=300,                 # reduced
         )
         return completion.choices[0].message.content
-    except Exception:
-        return "DIAGNOSTIC ADVICE:\n- Order HbA1c and Fasting Blood Sugar tests.\nDIETARY MODIFICATIONS:\n- Restrict daily carbohydrates intake.\nLIFESTYLE PROTOCOL:\n- Engage in 150 minutes of moderate exercise weekly."
+    except Exception as e:
+        error_str = str(e)
+        if "429" in error_str or "rate_limit" in error_str.lower():
+            return "⚠️ Rate limit reached. Please wait and try again later. (Recommendation generation skipped)"
+        else:
+            return "DIAGNOSTIC ADVICE:\n- Order HbA1c and Fasting Blood Sugar tests.\nDIETARY MODIFICATIONS:\n- Restrict daily carbohydrates intake.\nLIFESTYLE PROTOCOL:\n- Engage in 150 minutes of moderate exercise weekly."
 
 # --- CatBoost Model Loading ---
 @st.cache_resource
@@ -135,7 +152,7 @@ def generate_prescription_pdf(patient_name, patient_data, result_text, confidenc
     section2_text = "STATISTICAL RISK ASSESSMENT (CATBOOST ENGINE)"
     risk_label = "Risk Evaluation:"
     conf_label = "Algorithmic Confidence Level:"
-    section3_text = "RECOMMENDATIONS — CLINICAL GUIDELINE & ACTION PLAN"   # Changed from "Rx" to "Recommendations"
+    section3_text = "RECOMMENDATIONS — CLINICAL GUIDELINE & ACTION PLAN"
     section4_text = "REFERENCES (Guidelines Consulted)"
     warning_text = "Warning: This AI Doctor decision is not final. It is a preliminary screening report. Please consult a registered medical practitioner for formal diagnosis and treatment."
 
@@ -555,7 +572,6 @@ if st.session_state.step == -2:
     # ===== FORM 1: NAME =====
     with st.form(key="form_name_step", clear_on_submit=False):
         name_input = st.text_input("Enter your name..." if lang == "English" else "আপনার নাম লিখুন...", key="name_input_field")
-        # ✅ Submit button for name form
         submit_name = st.form_submit_button("Next ➡️" if lang == "English" else "পরবর্তী ➡️")
         
         if submit_name and name_input.strip():
@@ -578,7 +594,6 @@ elif st.session_state.step == -1:
     # ===== FORM 2: CHAT =====
     with st.form(key="form_chat_step", clear_on_submit=True):
         user_msg = st.text_input("Ask me anything or say something..." if lang == "English" else "আমাকে যেকোনো প্রশ্ন করুন বা কিছু বলুন...", key="chat_input_field")
-        # ✅ Submit button for chat form
         submit_chat = st.form_submit_button("Send 💬" if lang == "English" else "পাঠান 💬")
         
         if submit_chat and user_msg.strip():
@@ -614,7 +629,7 @@ elif st.session_state.step == -1:
                             chat_context.append({"role": "user" if h["role"] == "user" else "assistant", "content": h["text"]})
                             
                         reply = client.chat.completions.create(
-                            model="llama-3.3-70b-versatile",
+                            model="llama-3.1-8b-instant",   # smaller model also here
                             messages=chat_context,
                             temperature=0.6,
                             max_tokens=250
@@ -640,7 +655,6 @@ elif 0 <= st.session_state.step < len(questions):
             rev_mapping = {v: k for k, v in opt_mapping.items()}
             
             user_choice = st.radio("Choose one:", [opt_mapping[o] for o in current_q["options"]], index=None, label_visibility="collapsed", key=f"med_radio_{st.session_state.step}")
-            # ✅ Submit button for medical radio form
             submit_btn = st.form_submit_button("Next ➡️" if lang == "English" else "পরবর্তী ➡️")
             
             if submit_btn:
@@ -654,7 +668,6 @@ elif 0 <= st.session_state.step < len(questions):
                     st.rerun()
         else:
             user_val = st.number_input("Enter your age:", min_value=1, max_value=120, value=None, placeholder="e.g. 35", label_visibility="collapsed", key=f"med_age_{st.session_state.step}")
-            # ✅ Submit button for age number form
             submit_btn = st.form_submit_button("Next ➡️" if lang == "English" else "পরবর্তী ➡️")
             
             if submit_btn:
@@ -705,11 +718,16 @@ else:
         
         with st.spinner("🩺 Consulting clinical guidelines..."):
             agent_report, sources = get_rag_agent_response(patient_case_context, lang)
-        with st.spinner("📄 Preparing your recommendation document..."):   # changed from "prescription" to "recommendation"
+        with st.spinner("📄 Preparing your recommendation document..."):
             english_prescription_report = get_english_prescription_insights(patient_case_context)
             
         st.markdown("## 🤖 AI Doctor Assessment Report")
-        st.markdown(f'<div class="report-box">{agent_report}</div>', unsafe_allow_html=True)
+        
+        # --- Display agent report - if it's a rate-limit warning, show in warning box; else show normal report box
+        if agent_report.startswith("⚠️") or "rate limit" in agent_report.lower():
+            st.warning(agent_report)
+        else:
+            st.markdown(f'<div class="report-box">{agent_report}</div>', unsafe_allow_html=True)
         
         # --- Display References ---
         with st.expander("📚 References (Guidelines Consulted)", expanded=True):
@@ -732,9 +750,9 @@ else:
             sources
         )
         st.download_button(
-            label="📥 Download Recommendation PDF",   # changed label
+            label="📥 Download Recommendation PDF",
             data=prescription_pdf,
-            file_name=f"AI_Recommendation_{st.session_state.patient_name}.pdf",   # changed file name
+            file_name=f"AI_Recommendation_{st.session_state.patient_name}.pdf",
             mime="application/pdf"
         )
 
