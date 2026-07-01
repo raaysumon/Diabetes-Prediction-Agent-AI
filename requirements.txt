@@ -1,6 +1,7 @@
 streamlit
-catboost
 pandas
+numpy
+catboost
 groq
+scikit-learn
 reportlab
-
