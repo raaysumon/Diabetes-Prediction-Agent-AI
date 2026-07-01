@@ -200,7 +200,7 @@ with st.sidebar:
     st.markdown("### ⚙️ Settings / সেটিংস")
     lang_selection = st.radio("System Interface Language:", ["English", "বাংলা"], index=0)
 
-# --- 8. PREMIUM DARK MATTE (FRIENDLY MIDDLE DESIGN) CSS ---
+# --- 8. PREMIUM DARK MATTE WITH ULTRA FRIENDLY BUTTONS CSS ---
 st.markdown("""
 <style>
     * {
@@ -214,7 +214,6 @@ st.markdown("""
         color: #e2e8f0 !important;
     }
     
-    /* সাইডবার ব্যাকগ্রাউন্ড অ্যাডজাস্টমেন্ট */
     section[data-testid="stSidebar"] {
         background-color: #111418 !important;
     }
@@ -225,8 +224,8 @@ st.markdown("""
         width: 720px !important;
         margin: 30px auto !important; 
         padding: 24px !important; 
-        background-color: #222933 !important; /* ফ্রেন্ডলি ডার্ক স্লেট কালার */
-        border-radius: 20px !important; /* মডার্ন কার্ভড বর্ডার */
+        background-color: #222933 !important; 
+        border-radius: 20px !important; 
         box-shadow: 0 12px 40px rgba(0,0,0,0.4) !important;
         border: 1px solid #2e3745 !important;
     }
@@ -234,13 +233,13 @@ st.markdown("""
     .header-logo { 
         font-size: calc(1.5rem + 0.7vw) !important;
         font-weight: 700 !important; 
-        color: #e63946 !important; /* চোখে না লাগা ফ্রেন্ডলি সফ্ট রেড */
+        color: #e63946 !important; 
         display: block !important;
         text-align: center !important;
         margin-bottom: 5px !important;
     }
     
-    /* এআই চ্যাট বাবল - মডার্ন ডার্ক নিউট্রাল টোন */
+    /* এআই চ্যাট বাবল */
     .chat-bubble-ai { 
         background-color: #2d3748 !important; 
         color: #f7fafc !important; 
@@ -255,7 +254,7 @@ st.markdown("""
         box-shadow: 0 4px 12px rgba(0,0,0,0.15) !important;
     }
     
-    /* ইউজার চ্যাট বাবল - প্রিমিয়াম ডার্ক কোরাল রেড */
+    /* ইউজার চ্যাট বাবল */
     .chat-bubble-user { 
         background-color: #e63946 !important; 
         color: #ffffff !important; 
@@ -279,12 +278,36 @@ st.markdown("""
         box-shadow: inset 0 2px 4px rgba(0,0,0,0.2) !important;
     }
     
-    /* স্ট্রিমলিট রেডিও এবং টেক্সট ইনপুট এর টেক্সট ফিক্স */
+    /* 🛠️ বাটনের ফ্রেন্ডলি ফিক্স (১০০% রিডাবল এবং প্রিমিয়াম লুক) */
+    div[data-testid="stForm"] button, .stButton button {
+        background-color: #e63946 !important; /* সলিড প্রিমিয়াম রেড ব্যাকগ্রাউন্ড */
+        color: #ffffff !important; /* ১০০% পরিষ্কার সাদা টেক্সট */
+        border: none !important;
+        padding: 10px 24px !important;
+        font-size: 15px !important;
+        font-weight: 600 !important;
+        border-radius: 10px !important;
+        box-shadow: 0 4px 12px rgba(230,57,70,0.3) !important;
+        transition: all 0.2s ease-in-out !important;
+        width: auto !important;
+    }
+    
+    div[data-testid="stForm"] button:hover, .stButton button:hover {
+        background-color: #cc323f !important; /* হোভার করলে সামান্য ডার্ক শেড */
+        transform: translateY(-1px) !important;
+    }
+
+    /* ইনপুট ফিল্ডের ব্যাকগ্রাউন্ড ফিক্স */
+    input {
+        background-color: #2d3748 !important;
+        color: #ffffff !important;
+        border: 1px solid #4a5568 !important;
+    }
+    
     label, p, span, div[data-baseweb="radio"] {
         color: #edf2f7 !important;
     }
 
-    /* অল ডিভাইস রেসপন্সিভনেস নিশ্চিত করা */
     @media (max-width: 768px) {
         .main-wrapper { margin: 10px auto !important; padding: 15px !important; border-radius: 12px !important; }
         .chat-bubble-user { max-width: 90% !important; }
