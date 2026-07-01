@@ -3,3 +3,4 @@ catboost
 pandas
 groq
 reportlab
+scikit-learn==1.7.0
