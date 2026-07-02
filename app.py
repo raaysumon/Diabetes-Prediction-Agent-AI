@@ -20,11 +20,14 @@ st.set_page_config(
     initial_sidebar_state="collapsed"
 )
 
-# --- 2. API KEY MANAGEMENT ---
-try:
-    GROQ_API_KEY = st.secrets.get("GROQ_API_KEY", "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")
-except Exception:
-    GROQ_API_KEY = os.environ.get("GROQ_API_KEY", "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")
+# --- 2. API KEY MANAGEMENT (SECURED) ---
+if "GROQ_API_KEY" in st.secrets:
+    GROQ_API_KEY = st.secrets["GROQ_API_KEY"]
+elif os.environ.get("GROQ_API_KEY"):
+    GROQ_API_KEY = os.environ.get("GROQ_API_KEY")
+else:
+    st.error("Error: Groq API Key was not found! Please configure it in st.secrets or Environment Variables.")
+    st.stop()
 
 # --- 3. PRODUCTION RAG KNOWLEDGE BASE ---
 @st.cache_resource
@@ -265,7 +268,6 @@ st.markdown("""
         background: linear-gradient(90deg, #3b82f6 0%, #2563eb 100%) !important; transform: translateY(-1.5px) !important;
     }
     
-    /* 🔴 ডায়াবেটিস সনাক্ত হলে ডার্ক রেড বক্স এলার্ট */
     .custom-alert-danger {
         background-color: #7f1d1d !important; border: 1px solid #b91c1c !important;
         color: #fef2f2 !important; padding: 16px !important; border-radius: 14px !important;
@@ -273,7 +275,6 @@ st.markdown("""
         box-shadow: 0 4px 15px rgba(185, 28, 28, 0.25) !important; display: flex; align-items: center; gap: 10px;
     }
 
-    /* 🟢 ঝুঁকি না থাকলে ডার্ক গ্রিন বক্স এলার্ট */
     .custom-alert-success {
         background-color: #064e3b !important; border: 1px solid #047857 !important;
         color: #ecfdf5 !important; padding: 16px !important; border-radius: 14px !important;
@@ -370,7 +371,7 @@ elif 0 <= st.session_state.step < len(quiz_schema):
     
     with st.form(key=f"survey_form_{st.session_state.step}"):
         if "options" in active_node:
-            ui_labels = ["Yes", "No"] if lang == "English" else ["হ্যাঁ", "na"] # Normalize keys
+            ui_labels = ["Yes", "No"] if lang == "English" else ["হ্যাঁ", "না"]
             label_mapper = {"Yes": ui_labels[0], "No": ui_labels[1]}
             if active_node["field"] == "Gender":
                 label_mapper = {"Male": "Male" if lang=="English" else "পুরুষ", "Female": "Female" if lang=="English" else "নারী"}
@@ -418,7 +419,6 @@ else:
 
     st.write("### 📊 Clinical Screening Diagnostic Center")
     
-    # 🔴/🟢 কাস্টম কালারড বক্স অ্যালার্ট লজিক প্রয়োগ
     if has_positive_risk:
         st.markdown(f'<div class="custom-alert-danger">⚠️ {verdict_header} ({formatted_confidence_string})</div>', unsafe_allow_html=True)
     else:
